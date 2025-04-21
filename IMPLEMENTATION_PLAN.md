@@ -149,7 +149,10 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Improve prompt engineering
    - Add context windowing for large files ✅
     - Implement AIResolutionWithWindowingStrategy for automatic windowing based on file size ✅
-   - Implement caching for similar conflicts
+   - Implement caching for similar conflicts ✅
+    - Create AIResolutionCache for storing and retrieving resolved conflicts ✅
+    - Implement CachingAIProvider wrapper to add caching capability to any provider ✅
+    - Integrate caching with existing AI resolution strategies ✅
 
 3. Add advanced configuration options
    - Per-repository configuration
