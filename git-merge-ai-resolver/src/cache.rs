@@ -3,10 +3,10 @@
 
 use crate::ai_provider::{AIResponse, TokenUsage};
 use crate::conflict_parser::{ConflictRegion, ConflictFile};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use tracing::debug;
+use tracing::{debug, info};
 
 /// A structure to cache AI responses for similar conflicts
 pub struct AIResolutionCache {
@@ -18,6 +18,14 @@ pub struct AIResolutionCache {
     ttl: Duration,
     /// Flag to enable/disable caching
     enabled: bool,
+    /// Maximum number of entries per cache (if Some)
+    max_entries: Option<usize>,
+    /// Auto cleanup expired entries
+    auto_cleanup: bool,
+    /// Access order for conflict cache (newest to oldest)
+    conflict_access_order: Arc<Mutex<VecDeque<String>>>,
+    /// Access order for file cache (newest to oldest)
+    file_access_order: Arc<Mutex<VecDeque<String>>>,
 }
 
 /// A cache entry with expiration time
@@ -36,11 +44,20 @@ impl AIResolutionCache {
     
     /// Create a new cache with a specific TTL
     pub fn with_ttl(ttl: Duration) -> Self {
+        Self::with_options(ttl, None, false)
+    }
+
+    /// Create a new cache with specific options
+    pub fn with_options(ttl: Duration, max_entries: Option<usize>, auto_cleanup: bool) -> Self {
         AIResolutionCache {
             conflict_cache: Arc::new(Mutex::new(HashMap::new())),
             file_cache: Arc::new(Mutex::new(HashMap::new())),
             ttl,
             enabled: true,
+            max_entries,
+            auto_cleanup,
+            conflict_access_order: Arc::new(Mutex::new(VecDeque::new())),
+            file_access_order: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
     
@@ -53,6 +70,17 @@ impl AIResolutionCache {
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }
+
+    /// Set the maximum number of entries per cache
+    pub fn set_max_entries(&mut self, max_entries: usize) {
+        self.max_entries = Some(max_entries);
+        self.enforce_max_entries();
+    }
+
+    /// Set auto cleanup mode
+    pub fn set_auto_cleanup(&mut self, auto_cleanup: bool) {
+        self.auto_cleanup = auto_cleanup;
+    }
     
     /// Clear all entries from the cache
     pub fn clear(&self) {
@@ -62,6 +90,88 @@ impl AIResolutionCache {
         
         if let Ok(mut cache) = self.file_cache.lock() {
             cache.clear();
+        }
+
+        if let Ok(mut access_order) = self.conflict_access_order.lock() {
+            access_order.clear();
+        }
+
+        if let Ok(mut access_order) = self.file_access_order.lock() {
+            access_order.clear();
+        }
+    }
+
+    /// Enforce maximum entries limit by removing oldest entries
+    fn enforce_max_entries(&self) {
+        if let Some(max) = self.max_entries {
+            // Enforce for conflict cache
+            if let (Ok(mut cache), Ok(mut access_order)) = (self.conflict_cache.lock(), self.conflict_access_order.lock()) {
+                while access_order.len() > max {
+                    if let Some(oldest) = access_order.pop_back() {
+                        // Check if the entry actually exists before removing
+                        if cache.contains_key(&oldest) {
+                            cache.remove(&oldest);
+                            debug!("Removed oldest conflict cache entry due to max size limit");
+                        }
+                    }
+                }
+            }
+
+            // Enforce for file cache
+            if let (Ok(mut cache), Ok(mut access_order)) = (self.file_cache.lock(), self.file_access_order.lock()) {
+                while access_order.len() > max {
+                    if let Some(oldest) = access_order.pop_back() {
+                        // Check if the entry actually exists before removing
+                        if cache.contains_key(&oldest) {
+                            cache.remove(&oldest);
+                            debug!("Removed oldest file cache entry due to max size limit");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Clean up expired entries
+    fn cleanup_expired(&self) {
+        let now = SystemTime::now();
+
+        // Clean up conflict cache
+        if let (Ok(mut cache), Ok(mut access_order)) = (self.conflict_cache.lock(), self.conflict_access_order.lock()) {
+            let mut expired_keys = Vec::new();
+            
+            for (key, entry) in cache.iter() {
+                if entry.expires_at <= now {
+                    expired_keys.push(key.clone());
+                }
+            }
+            
+            for key in &expired_keys {
+                cache.remove(key);
+                debug!("Removed expired conflict cache entry");
+            }
+            
+            // Update access order
+            access_order.retain(|key| !expired_keys.contains(key));
+        }
+
+        // Clean up file cache
+        if let (Ok(mut cache), Ok(mut access_order)) = (self.file_cache.lock(), self.file_access_order.lock()) {
+            let mut expired_keys = Vec::new();
+            
+            for (key, entry) in cache.iter() {
+                if entry.expires_at <= now {
+                    expired_keys.push(key.clone());
+                }
+            }
+            
+            for key in &expired_keys {
+                cache.remove(key);
+                debug!("Removed expired file cache entry");
+            }
+            
+            // Update access order
+            access_order.retain(|key| !expired_keys.contains(key));
         }
     }
     
@@ -89,12 +199,22 @@ impl AIResolutionCache {
             return None;
         }
         
+        // Cleanup expired entries if auto-cleanup is enabled
+        if self.auto_cleanup {
+            self.cleanup_expired();
+        }
+        
         let key = self.generate_conflict_key(conflict);
         let now = SystemTime::now();
         
-        if let Ok(cache) = self.conflict_cache.lock() {
+        if let (Ok(cache), Ok(mut access_order)) = (self.conflict_cache.lock(), self.conflict_access_order.lock()) {
             if let Some(entry) = cache.get(&key) {
                 if entry.expires_at > now {
+                    // Update access order - remove old position if exists
+                    access_order.retain(|k| k != &key);
+                    // Add to front (newest)
+                    access_order.push_front(key.clone());
+                    
                     debug!("Cache hit for conflict");
                     return Some(entry.response.clone());
                 }
@@ -111,12 +231,22 @@ impl AIResolutionCache {
             return None;
         }
         
+        // Cleanup expired entries if auto-cleanup is enabled
+        if self.auto_cleanup {
+            self.cleanup_expired();
+        }
+        
         let key = self.generate_file_key(file);
         let now = SystemTime::now();
         
-        if let Ok(cache) = self.file_cache.lock() {
+        if let (Ok(cache), Ok(mut access_order)) = (self.file_cache.lock(), self.file_access_order.lock()) {
             if let Some(entry) = cache.get(&key) {
                 if entry.expires_at > now {
+                    // Update access order - remove old position if exists
+                    access_order.retain(|k| k != &key);
+                    // Add to front (newest)
+                    access_order.push_front(key.clone());
+                    
                     debug!("Cache hit for file {}", file.path);
                     return Some(entry.response.clone());
                 }
@@ -133,12 +263,34 @@ impl AIResolutionCache {
             return;
         }
         
+        // Cleanup expired entries if auto-cleanup is enabled
+        if self.auto_cleanup {
+            self.cleanup_expired();
+        }
+        
         let key = self.generate_conflict_key(conflict);
         let expires_at = SystemTime::now() + self.ttl;
         
-        if let Ok(mut cache) = self.conflict_cache.lock() {
+        if let (Ok(mut cache), Ok(mut access_order)) = (self.conflict_cache.lock(), self.conflict_access_order.lock()) {
+            // Update access order - add/move to front of queue
+            // Update access order - remove old position if exists
+            access_order.retain(|k| k != &key);
+            // Add to front (newest)
+            access_order.push_front(key.clone());
+            
+            // Insert entry
             cache.insert(key, CacheEntry { response, expires_at });
             debug!("Cached response for conflict");
+            
+            // Enforce max entries if set
+            if let Some(max) = self.max_entries {
+                while access_order.len() > max {
+                    if let Some(oldest) = access_order.pop_back() {
+                        cache.remove(&oldest);
+                        debug!("Removed oldest conflict cache entry due to max size limit");
+                    }
+                }
+            }
         }
     }
     
@@ -148,12 +300,33 @@ impl AIResolutionCache {
             return;
         }
         
+        // Cleanup expired entries if auto-cleanup is enabled
+        if self.auto_cleanup {
+            self.cleanup_expired();
+        }
+        
         let key = self.generate_file_key(file);
         let expires_at = SystemTime::now() + self.ttl;
         
-        if let Ok(mut cache) = self.file_cache.lock() {
+        if let (Ok(mut cache), Ok(mut access_order)) = (self.file_cache.lock(), self.file_access_order.lock()) {
+            // Update access order - remove old position if exists
+            access_order.retain(|k| k != &key);
+            // Add to front (newest)
+            access_order.push_front(key.clone());
+            
+            // Insert entry
             cache.insert(key, CacheEntry { response, expires_at });
             debug!("Cached response for file {}", file.path);
+            
+            // Enforce max entries if set
+            if let Some(max) = self.max_entries {
+                while access_order.len() > max {
+                    if let Some(oldest) = access_order.pop_back() {
+                        cache.remove(&oldest);
+                        debug!("Removed oldest file cache entry due to max size limit");
+                    }
+                }
+            }
         }
     }
 }
