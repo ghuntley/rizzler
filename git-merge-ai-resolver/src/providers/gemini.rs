@@ -6,6 +6,8 @@ use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use std::collections::HashMap;
 use std::env;
 use tracing::{debug, info, warn, error};
+use ureq;
+use std::time::Duration;
 use serde_json::{json, Value};
 
 /// Google Gemini provider implementation
@@ -14,6 +16,151 @@ pub struct GeminiProvider {
 }
 
 impl GeminiProvider {
+    /// Get the API endpoint for Gemini
+    fn get_api_endpoint(&self) -> String {
+        let project_id = self.config.additional_settings.get("project_id");
+        let location = self.config.additional_settings.get("location");
+        
+        if let (Some(project_id), Some(location)) = (project_id, location) {
+            // Use Google Cloud AI Platform format
+            format!(
+                "https://{}-aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/{}:generateContent",
+                location, project_id, location, self.config.model
+            )
+        } else {
+            // Use direct Gemini API format
+            format!(
+                "https://generativelanguage.googleapis.com/v1/models/{}:generateContent?key={}",
+                self.config.model, self.config.api_key
+            )
+        }
+    }
+    
+    /// Prepare the request payload for the Gemini API
+    fn prepare_request_payload(&self, system_prompt: &str, user_prompt: &str) -> Value {
+        // Check for specific settings
+        let max_tokens = self.config.additional_settings.get("max_tokens")
+            .and_then(|s| s.parse::<u32>().ok());
+        
+        let temperature = self.config.additional_settings.get("temperature")
+            .and_then(|s| s.parse::<f32>().ok());
+        
+        // Build the contents array with system and user prompts
+        let mut contents = Vec::new();
+        
+        // Add system prompt as a role message
+        contents.push(json!({
+            "role": "system",
+            "parts": [{
+                "text": system_prompt
+            }]
+        }));
+        
+        // Add user prompt
+        contents.push(json!({
+            "role": "user",
+            "parts": [{
+                "text": user_prompt
+            }]
+        }));
+        
+        // Build generation config
+        let mut generation_config = json!({
+            "temperature": temperature.unwrap_or(0.2),
+            "topP": 0.95,
+            "topK": 40
+        });
+        
+        // Add max tokens if specified
+        if let Some(max) = max_tokens {
+            generation_config["maxOutputTokens"] = json!(max);
+        }
+        
+        // Build the full request payload
+        json!({
+            "contents": contents,
+            "generationConfig": generation_config,
+            "safetySettings": [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE"
+                }
+            ]
+        })
+    }
+    
+    /// Extract the response content from Gemini API response
+    fn extract_response_content(&self, response_json: &Value) -> Result<String, AIProviderError> {
+        // Try to get the content from the first candidate
+        if let Some(candidates) = response_json.get("candidates").and_then(|c| c.as_array()) {
+            if let Some(first_candidate) = candidates.first() {
+                if let Some(content) = first_candidate.get("content") {
+                    if let Some(parts) = content.get("parts").and_then(|p| p.as_array()) {
+                        if let Some(first_part) = parts.first() {
+                            if let Some(text) = first_part.get("text").and_then(|t| t.as_str()) {
+                                return Ok(text.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If we couldn't extract the content using the expected structure
+        Err(AIProviderError::ResponseError("Failed to extract content from Gemini response".to_string()))
+    }
+    
+    /// Extract the explanation from the response if available
+    fn extract_explanation(&self, response_json: &Value) -> Option<String> {
+        // Try to get the explanation from the response
+        // For Gemini, we'll look for any metadata or finish reason that can serve as an explanation
+        if let Some(finish_reason) = response_json.get("candidates").and_then(|c| c.as_array())
+            .and_then(|candidates| candidates.first())
+            .and_then(|candidate| candidate.get("finishReason").and_then(|r| r.as_str())) {
+            return Some(format!("Finish reason: {}", finish_reason));
+        }
+        
+        // If no specific explanation is found, provide a generic one
+        Some("Resolved using Gemini API".to_string())
+    }
+    
+    /// Extract token usage information from the response
+    fn extract_token_usage(&self, response_json: &Value) -> Option<TokenUsage> {
+        // Try to get usage metrics
+        if let Some(usage_metadata) = response_json.get("usageMetadata") {
+            let input_tokens = usage_metadata.get("promptTokenCount")
+                .and_then(|t| t.as_u64())
+                .map(|t| t as u32)
+                .unwrap_or(0);
+                
+            let output_tokens = usage_metadata.get("candidatesTokenCount")
+                .and_then(|t| t.as_u64())
+                .map(|t| t as u32)
+                .unwrap_or(0);
+                
+            return Some(TokenUsage {
+                input_tokens,
+                output_tokens,
+                total_tokens: input_tokens + output_tokens,
+            });
+        }
+        
+        // If we couldn't extract token usage, return None
+        None
+    }
+    
     /// Create a new Gemini provider
     pub fn new() -> Result<Self, AIProviderError> {
         // In test mode, always use a test key for convenience
@@ -169,25 +316,75 @@ impl AIProvider for GeminiProvider {
         debug!("System prompt: {}", system_prompt);
         debug!("User prompt: {}", user_prompt);
         
-        // For testing, return a mock response
-        let content = match user_prompt.contains("conflict") {
-            true => "// Mock resolved content from Gemini API\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n".to_string(),
-            false => "// Mock resolved content for entire file\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n\nfunction subtract(a, b) {\n  return a - b;\n}\n".to_string()
-        };
+        // In test mode, return a mock response
+        #[cfg(test)]
+        {
+            let content = "// Mock resolved content from Gemini API\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n".to_string();
+            let token_count = user_prompt.chars().count() as u32;
+            let output_count = content.chars().count() as u32;
+            
+            return Ok(AIResponse {
+                content,
+                explanation: Some("Resolved by Gemini AI (mock implementation)".to_string()),
+                token_usage: Some(TokenUsage {
+                    input_tokens: token_count,
+                    output_tokens: output_count,
+                    total_tokens: token_count + output_count,
+                }),
+                model: self.config.model.clone(),
+            });
+        }
         
-        let token_count = user_prompt.chars().count() as u32;
-        let output_count = content.chars().count() as u32;
+        // In non-test mode, make a real API call to Gemini
+        #[cfg(not(test))]
+        {
+            // Create a request to the Gemini API
+            let api_endpoint = self.get_api_endpoint();
+            
+            // Prepare the request payload
+            let payload = self.prepare_request_payload(&system_prompt, &user_prompt);
+            
+            // Send the request to Gemini API
+            let response = ureq::post(&api_endpoint)
+                .set("Content-Type", "application/json")
+                .set("Authorization", &format!("Bearer {}", self.config.api_key))
+                .timeout(Duration::from_secs(self.config.timeout_seconds))
+                .send_json(payload)
+                .map_err(|e| {
+                    match e {
+                        ureq::Error::Status(code, response) => {
+                            let error_text = response.into_string().unwrap_or_else(|_| "Unable to read error response".to_string());
+                            return match code {
+                                401 | 403 => AIProviderError::AuthError(format!("Authentication error: {}", error_text)),
+                                404 => AIProviderError::ModelNotAvailable(format!("Model not found: {}", error_text)),
+                                429 => AIProviderError::RateLimit(format!("Rate limit exceeded: {}", error_text)),
+                                408 | 504 => AIProviderError::Timeout(format!("Request timed out: {}", error_text)),
+                                _ => AIProviderError::RequestError(format!("API request failed with status {}: {}", code, error_text)),
+                            };
+                        },
+                        ureq::Error::Transport(transport) => AIProviderError::ConnectionError(format!("Failed to connect to Gemini API: {}", transport)),
+                    }
+                })?;
+                
+            // Parse the response
+            let response_json: Value = response.into_json()
+                .map_err(|e| AIProviderError::ResponseError(format!("Failed to parse response: {}", e)))?;
+            
+            // Extract content from the response
+            let content = self.extract_response_content(&response_json)?;
+            let explanation = self.extract_explanation(&response_json);
+            let token_usage = self.extract_token_usage(&response_json);
+            
+            return Ok(AIResponse {
+                content,
+                explanation,
+                token_usage,
+                model: self.config.model.clone(),
+            });
+        }
         
-        Ok(AIResponse {
-            content,
-            explanation: Some("Resolved by Gemini AI (mock implementation)".to_string()),
-            token_usage: Some(TokenUsage {
-                input_tokens: token_count,
-                output_tokens: output_count,
-                total_tokens: token_count + output_count,
-            }),
-            model: self.config.model.clone(),
-        })
+        // This part is only reached in cfg(test) mode due to the early return above
+        unreachable!()
     }
     
     fn resolve_file(
@@ -208,22 +405,76 @@ impl AIProvider for GeminiProvider {
         debug!("System prompt: {}", system_prompt);
         debug!("User prompt: {}", user_prompt);
         
-        // For testing, return a mock response that includes multiple functions
-        let content = "// Mock resolved content for entire file\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n\nfunction subtract(a, b) {\n  return a - b;\n}\n".to_string();
+        // In test mode, return a mock response
+        #[cfg(test)]
+        {
+            let content = "// Mock resolved content for entire file\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n\nfunction subtract(a, b) {\n  return a - b;\n}\n".to_string();
+            
+            let token_count = user_prompt.chars().count() as u32;
+            let output_count = content.chars().count() as u32;
+            
+            return Ok(AIResponse {
+                content,
+                explanation: Some("Resolved entire file by Gemini AI (mock implementation)".to_string()),
+                token_usage: Some(TokenUsage {
+                    input_tokens: token_count,
+                    output_tokens: output_count,
+                    total_tokens: token_count + output_count,
+                }),
+                model: self.config.model.clone(),
+            });
+        }
         
-        let token_count = user_prompt.chars().count() as u32;
-        let output_count = content.chars().count() as u32;
+        // In non-test mode, make a real API call to Gemini
+        #[cfg(not(test))]
+        {
+            // Create a request to the Gemini API
+            let api_endpoint = self.get_api_endpoint();
+            
+            // Prepare the request payload
+            let payload = self.prepare_request_payload(&system_prompt, &user_prompt);
+            
+            // Send the request to Gemini API
+            let response = ureq::post(&api_endpoint)
+                .set("Content-Type", "application/json")
+                .set("Authorization", &format!("Bearer {}", self.config.api_key))
+                .timeout(Duration::from_secs(self.config.timeout_seconds))
+                .send_json(payload)
+                .map_err(|e| {
+                    match e {
+                        ureq::Error::Status(code, response) => {
+                            let error_text = response.into_string().unwrap_or_else(|_| "Unable to read error response".to_string());
+                            return match code {
+                                401 | 403 => AIProviderError::AuthError(format!("Authentication error: {}", error_text)),
+                                404 => AIProviderError::ModelNotAvailable(format!("Model not found: {}", error_text)),
+                                429 => AIProviderError::RateLimit(format!("Rate limit exceeded: {}", error_text)),
+                                408 | 504 => AIProviderError::Timeout(format!("Request timed out: {}", error_text)),
+                                _ => AIProviderError::RequestError(format!("API request failed with status {}: {}", code, error_text)),
+                            };
+                        },
+                        ureq::Error::Transport(transport) => AIProviderError::ConnectionError(format!("Failed to connect to Gemini API: {}", transport)),
+                    }
+                })?;
+                
+            // Parse the response
+            let response_json: Value = response.into_json()
+                .map_err(|e| AIProviderError::ResponseError(format!("Failed to parse response: {}", e)))?;
+            
+            // Extract content from the response
+            let content = self.extract_response_content(&response_json)?;
+            let explanation = self.extract_explanation(&response_json);
+            let token_usage = self.extract_token_usage(&response_json);
+            
+            return Ok(AIResponse {
+                content,
+                explanation,
+                token_usage,
+                model: self.config.model.clone(),
+            });
+        }
         
-        Ok(AIResponse {
-            content,
-            explanation: Some("Resolved entire file by Gemini AI (mock implementation)".to_string()),
-            token_usage: Some(TokenUsage {
-                input_tokens: token_count,
-                output_tokens: output_count,
-                total_tokens: token_count + output_count,
-            }),
-            model: self.config.model.clone(),
-        })
+        // This part is only reached in cfg(test) mode due to the early return above
+        unreachable!()
     }
 }
 

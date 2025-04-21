@@ -6,49 +6,67 @@ use git_merge_ai_resolver::ai_provider::{AIProvider, AIProviderError};
 use git_merge_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
 use std::env;
 
-#[ignore = "This test requires a valid Gemini API key"]
+// Helper function to create a test conflict region
+fn create_test_conflict(our_content: &str, their_content: &str) -> ConflictRegion {
+    ConflictRegion {
+        base_content: String::new(),
+        our_content: our_content.to_string(),
+        their_content: their_content.to_string(),
+        start_line: 1,
+        end_line: 5,
+    }
+}
+
+// Helper function to create a test conflict file
+fn create_test_conflict_file(conflicts: Vec<ConflictRegion>) -> ConflictFile {
+    ConflictFile {
+        path: "test.txt".to_string(),
+        conflicts,
+        content: "<<<<<<< HEAD\nTest content\n=======\nTheir content\n>>>>>>> branch-name\n".to_string(),
+    }
+}
+
+#[cfg(feature = "integration-tests")]
 #[test]
 fn test_gemini_api_integration() {
-    // Skip test if no API key is provided
+    // Skip this test unless the Gemini API key is properly set
     let api_key = match env::var("GIT_MERGE_GEMINI_API_KEY") {
-        Ok(key) => key,
-        Err(_) => {
-            println!("Skipping test as GIT_MERGE_GEMINI_API_KEY is not set");
+        Ok(key) if !key.is_empty() => key,
+        _ => {
+            println!("Skipping test_gemini_api_integration: GIT_MERGE_GEMINI_API_KEY not set");
             return;
         }
     };
     
-    // Create a test conflict
-    let conflict = ConflictRegion {
-        base_content: String::new(),
-        our_content: "function add(a, b) {\n  return a + b;\n}\n".to_string(),
-        their_content: "function add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n".to_string(),
-        start_line: 1,
-        end_line: 5,
-    };
-    
-    let conflict_file = ConflictFile {
-        path: "test.js".to_string(),
-        conflicts: vec![conflict.clone()],
-        content: "<<<<<<< HEAD\nfunction add(a, b) {\n  return a + b;\n}\n=======\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n>>>>>>> feature-branch\n".to_string(),
-    };
-    
-    // Create the provider
+    // Create a provider with the real API key
     let provider = GeminiProvider::new().unwrap();
     
-    // Verify the provider is available
-    assert!(provider.is_available());
+    // Create a simple test conflict for resolution
+    let conflict = create_test_conflict(
+        "function calculateSum(a, b) {\n  return a + b;\n}\n", 
+        "function calculateSum(a, b) {\n  // Add two numbers and return the result\n  return a + b;\n}\n"
+    );
+    let conflict_file = create_test_conflict_file(vec![conflict.clone()]);
     
-    // Test resolving a conflict
-    let result = provider.resolve_conflict(&conflict_file, &conflict);
-    assert!(result.is_ok(), "Failed to resolve conflict: {:?}", result.err());
+    // Test the whole file resolution approach
+    let file_result = provider.resolve_file(&conflict_file);
+    assert!(file_result.is_ok(), "File resolution failed: {:?}", file_result.err());
     
-    let response = result.unwrap();
-    println!("Resolved content: {}", response.content);
-    println!("Explanation: {:?}", response.explanation);
-    println!("Token usage: {:?}", response.token_usage);
+    let file_response = file_result.unwrap();
+    assert!(!file_response.content.is_empty(), "Empty response content");
+    assert!(file_response.explanation.is_some(), "Missing explanation");
+    assert!(file_response.token_usage.is_some(), "Missing token usage");
     
-    // Verify we got a meaningful response
-    assert!(!response.content.is_empty());
-    assert!(response.content.contains("function add"));
+    // Test the specific conflict resolution approach
+    let conflict_result = provider.resolve_conflict(&conflict_file, &conflict);
+    assert!(conflict_result.is_ok(), "Conflict resolution failed: {:?}", conflict_result.err());
+    
+    let conflict_response = conflict_result.unwrap();
+    assert!(!conflict_response.content.is_empty(), "Empty conflict resolution content");
+    assert!(conflict_response.explanation.is_some(), "Missing conflict explanation");
+    assert!(conflict_response.token_usage.is_some(), "Missing conflict token usage");
+    
+    // Verify the content is sensible (should contain function definition)
+    assert!(conflict_response.content.contains("function calculateSum"), "Content missing expected function name");
+    assert!(conflict_response.content.contains("return a + b"), "Content missing expected return statement");
 }
