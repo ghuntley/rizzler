@@ -84,8 +84,13 @@ impl ResolutionEngine {
         // Add rule-based strategies
         engine.add_strategy(Box::new(WhitespaceOnlyStrategy::new()));
         
-        // Try to add AI-based strategies if available
-        if let Ok(ai_strategy) = crate::ai_resolution::AIResolutionStrategy::new() {
+        // Try to add fallback AI strategy if available
+        if let Ok(fallback_strategy) = crate::fallback::FallbackResolutionStrategy::new() {
+            info!("Adding fallback AI resolution strategy with providers: {:?}", fallback_strategy.provider_names());
+            engine.add_strategy(Box::new(fallback_strategy));
+        } else if let Ok(ai_strategy) = crate::ai_resolution::AIResolutionStrategy::new() {
+            // If fallback isn't available, try single AI provider
+            info!("Adding single AI resolution strategy: {}", ai_strategy.name());
             engine.add_strategy(Box::new(ai_strategy));
         }
         

@@ -5,6 +5,7 @@ pub mod ai_provider;
 pub mod ai_resolution;
 pub mod config;
 pub mod conflict_parser;
+pub mod fallback;
 pub mod git_integration;
 pub mod providers;
 pub mod resolution_engine;
@@ -17,3 +18,4 @@ pub use resolution_engine::{ResolutionEngine, ResolutionStrategy, ResolutionResu
 pub use ai_provider::{AIProvider, AIProviderError, AIResponse};
 pub use providers::{OpenAIProvider, ClaudeProvider};
 pub use ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
+pub use fallback::FallbackResolutionStrategy;
