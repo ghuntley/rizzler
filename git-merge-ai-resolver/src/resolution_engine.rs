@@ -84,6 +84,11 @@ impl ResolutionEngine {
         // Add rule-based strategies
         engine.add_strategy(Box::new(WhitespaceOnlyStrategy::new()));
         
+        // Try to add AI-based strategies if available
+        if let Ok(ai_strategy) = crate::ai_resolution::AIResolutionStrategy::new() {
+            engine.add_strategy(Box::new(ai_strategy));
+        }
+        
         engine
     }
     
