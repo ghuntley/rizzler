@@ -67,6 +67,9 @@ This document outlines the incremental delivery plan for building the git-merge-
     - Fixed function extraction logic in context matching to better handle nested functions and function declarations ✅
     - Improved direct function detection in the conflict parser to enhance matching quality ✅
     - Added targeted tests for the function extraction and fixed context matching bugs ✅
+     - Enhanced algorithm for nested function detection and extraction in conflict parser ✅
+     - Improved context matching for deeply nested code structures and anonymous functions ✅
+     - Added comprehensive tests for enhanced function extraction capabilities ✅
 
 2. Build resolution engine framework ✅
    - Implement strategy pattern for resolution methods ✅
