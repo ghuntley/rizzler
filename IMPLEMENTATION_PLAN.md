@@ -56,6 +56,7 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Parse Git conflict markers ✅
    - Extract base, ours, and theirs versions ✅
    - Create data structures to represent conflicts ✅
+   - Enhanced conflict parser with base content from ancestor file ✅
 
 2. Build resolution engine framework ✅
    - Implement strategy pattern for resolution methods ✅
@@ -81,6 +82,8 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Implemented resolution engine with strategy pattern architecture
 - Created whitespace-only conflict resolution strategy
 - Added integration with Git merge driver interface
+- Enhanced conflict parser to include base content from ancestor file
+- Improved conflict resolution with contextual information from all three versions
 - Implemented comprehensive unit and property-based tests
 - Added support for resolving conflicts via command line with strategy selection
 

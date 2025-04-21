@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::path::Path;
-use tracing::{debug, info, error};
+use tracing::{debug, info, error, warn};
 
 /// Represents the paths provided by Git to the merge driver
 pub struct MergeDriverPaths {
@@ -93,12 +93,25 @@ pub fn process_merge(paths: &MergeDriverPaths) -> i32 {
     
     info!("Processing merge for file: {}", paths.conflict_path);
     
-    // Parse the conflict file
-    let conflict_file = match conflict_parser::parse_conflict_file(&paths.conflict_path) {
+    // Parse the conflict file with base content from ancestor
+    let conflict_file = match conflict_parser::parse_conflict_file_with_base(
+        &paths.conflict_path, 
+        &paths.ancestor_path
+    ) {
         Ok(file) => file,
         Err(err) => {
             error!("Failed to parse conflict file: {}", err);
-            return 1; // Return failure
+            // Fallback to basic parser if enhanced parser fails
+            match conflict_parser::parse_conflict_file(&paths.conflict_path) {
+                Ok(file) => {
+                    warn!("Falling back to basic conflict parser without base content");
+                    file
+                },
+                Err(err) => {
+                    error!("Also failed with basic parser: {}", err);
+                    return 1; // Return failure
+                }
+            }
         }
     };
     
@@ -179,10 +192,10 @@ mod tests {
             prop_assert!(result.is_ok());
             
             let paths = result.unwrap();
-            prop_assert_eq!(paths.ancestor_path, args[0]);
-            prop_assert_eq!(paths.current_path, args[1]);
-            prop_assert_eq!(paths.other_path, args[2]);
-            prop_assert_eq!(paths.conflict_path, args[3]);
+            prop_assert_eq!(&paths.ancestor_path, &args[0]);
+            prop_assert_eq!(&paths.current_path, &args[1]);
+            prop_assert_eq!(&paths.other_path, &args[2]);
+            prop_assert_eq!(&paths.conflict_path, &args[3]);
         }
     }
 }

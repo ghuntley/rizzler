@@ -110,7 +110,7 @@ pub fn parse_conflict_file(path: &str) -> Result<ConflictFile, ConflictParseErro
             
             // Create a conflict region
             conflicts.push(ConflictRegion {
-                base_content: String::new(), // We don't have base content from markers
+                base_content: String::new(), // Base content will be populated by parse_conflict_file_with_base
                 our_content,
                 their_content,
                 start_line: conflict_start,
@@ -153,6 +153,41 @@ pub fn parse_conflict_file(path: &str) -> Result<ConflictFile, ConflictParseErro
     })
 }
 
+/// Parse conflicts from a file with Git conflict markers and include base content from the ancestor file
+/// 
+/// This function enhances conflict parsing by loading base content from the ancestor file that Git provides
+/// as part of the merge driver interface.
+/// 
+/// * `conflict_path` - Path to the file with conflict markers
+/// * `base_path` - Path to the base/ancestor version of the file
+pub fn parse_conflict_file_with_base(conflict_path: &str, base_path: &str) -> Result<ConflictFile, ConflictParseError> {
+    debug!("Parsing conflict file with base content. Conflict: {}, Base: {}", conflict_path, base_path);
+    
+    // First, parse the conflict file normally
+    let mut conflict_file = parse_conflict_file(conflict_path)?;
+    
+    // Read the base file
+    let base_file = File::open(base_path).map_err(|e| {
+        warn!("Failed to open base file: {}", e);
+        ConflictParseError::IoError(e)
+    })?;
+    
+    let base_content = std::io::read_to_string(base_file).map_err(|e| {
+        warn!("Failed to read base file content: {}", e);
+        ConflictParseError::IoError(e)
+    })?;
+    
+    // Update each conflict region with the base content
+    // For simplicity, we're using the entire base file content for each conflict
+    // In a more sophisticated implementation, we might want to match specific sections
+    for conflict in &mut conflict_file.conflicts {
+        conflict.base_content = base_content.clone();
+    }
+    
+    info!("Successfully parsed conflict file with base content. Found {} conflicts", conflict_file.conflicts.len());
+    Ok(conflict_file)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,9 +227,61 @@ This is after the conflict.
         assert_eq!(conflict.end_line, 6);
     }
     
+    #[test]
+    fn test_parse_conflict_file_with_base() {
+        // Create temporary files for testing
+        let temp_dir = tempfile::tempdir().unwrap();
+        
+        // Create base file
+        let base_path = temp_dir.path().join("base.txt");
+        let base_content = "This is the base content.\n";
+        let mut base_file = File::create(&base_path).unwrap();
+        base_file.write_all(base_content.as_bytes()).unwrap();
+        
+        // Create conflict file
+        let conflict_path = temp_dir.path().join("conflict.txt");
+        let conflict_content = r#"This is a file with a conflict.
+<<<<<<< HEAD
+This is our content.
+=======
+This is their content.
+>>>>>>> branch-name
+This is after the conflict.
+"#;
+        let mut conflict_file = File::create(&conflict_path).unwrap();
+        conflict_file.write_all(conflict_content.as_bytes()).unwrap();
+        
+        // Create files for current and other branches
+        let current_path = temp_dir.path().join("current.txt");
+        File::create(&current_path).unwrap().write_all(b"Current branch content").unwrap();
+        
+        let other_path = temp_dir.path().join("other.txt");
+        File::create(&other_path).unwrap().write_all(b"Other branch content").unwrap();
+        
+        // Create merge driver paths
+        let paths = crate::git_integration::MergeDriverPaths {
+            ancestor_path: base_path.to_str().unwrap().to_string(),
+            current_path: current_path.to_str().unwrap().to_string(),
+            other_path: other_path.to_str().unwrap().to_string(),
+            conflict_path: conflict_path.to_str().unwrap().to_string(),
+        };
+        
+        // Parse the conflict file with base content
+        let result = parse_conflict_file_with_base(paths.conflict_path.as_str(), paths.ancestor_path.as_str());
+        assert!(result.is_ok());
+        
+        let conflict_file = result.unwrap();
+        assert_eq!(conflict_file.conflicts.len(), 1);
+        
+        let conflict = &conflict_file.conflicts[0];
+        assert_eq!(conflict.base_content, "This is the base content.\n");
+        assert_eq!(conflict.our_content, "This is our content.\n");
+        assert_eq!(conflict.their_content, "This is their content.\n");
+    }
+    
     proptest! {
         #[test]
-        fn test_parse_conflict_file_prop(our_content in "[\w\s]{1,100}", their_content in "[\w\s]{1,100}") {
+        fn test_parse_conflict_file_prop(our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
             let temp_dir = tempfile::tempdir().unwrap();
             let file_path = temp_dir.path().join("conflict.txt");
             
@@ -218,9 +305,50 @@ After the conflict.", our_content, their_content);
             prop_assert_eq!(conflict_file.conflicts.len(), 1);
             
             let conflict = &conflict_file.conflicts[0];
-            prop_assert_eq!(conflict.our_content, format!("{}
+            prop_assert_eq!(&conflict.our_content, &format!("{}
 ", our_content));
-            prop_assert_eq!(conflict.their_content, format!("{}
+            prop_assert_eq!(&conflict.their_content, &format!("{}
+", their_content));
+        }
+        
+        #[test]
+        fn test_parse_conflict_file_with_base_prop(base_content in r"[\w\s]{1,100}", our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
+            let temp_dir = tempfile::tempdir().unwrap();
+            
+            // Create base file
+            let base_path = temp_dir.path().join("base.txt");
+            let base_content_str = format!("{}
+", base_content);
+            let mut base_file = File::create(&base_path).unwrap();
+            base_file.write_all(base_content_str.as_bytes()).unwrap();
+            
+            // Create conflict file
+            let conflict_path = temp_dir.path().join("conflict.txt");
+            let conflict_content = format!("Before the conflict.
+<<<<<<< HEAD
+{}
+=======
+{}
+>>>>>>> branch-name
+After the conflict.", our_content, their_content);
+            let mut conflict_file = File::create(&conflict_path).unwrap();
+            conflict_file.write_all(conflict_content.as_bytes()).unwrap();
+            
+            // Parse the conflict file with base content
+            let result = parse_conflict_file_with_base(
+                conflict_path.to_str().unwrap(),
+                base_path.to_str().unwrap()
+            );
+            prop_assert!(result.is_ok());
+            
+            let conflict_file = result.unwrap();
+            prop_assert_eq!(conflict_file.conflicts.len(), 1);
+            
+            let conflict = &conflict_file.conflicts[0];
+            prop_assert_eq!(&conflict.base_content, &base_content_str);
+            prop_assert_eq!(&conflict.our_content, &format!("{}
+", our_content));
+            prop_assert_eq!(&conflict.their_content, &format!("{}
 ", their_content));
         }
     }
