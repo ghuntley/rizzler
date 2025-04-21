@@ -145,6 +145,7 @@ This document outlines the incremental delivery plan for building the git-merge-
 2. Enhance AI resolution strategies
    - Improve prompt engineering
    - Add context windowing for large files ✅
+    - Implement AIResolutionWithWindowingStrategy for automatic windowing based on file size ✅
    - Implement caching for similar conflicts
 
 3. Add advanced configuration options

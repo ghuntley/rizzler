@@ -303,7 +303,7 @@ impl AIFileResolutionStrategy {
 }
 
 /// Map AI provider errors to resolution errors
-fn map_ai_error_to_resolution_error(err: AIProviderError) -> ResolutionError {
+pub fn map_ai_error_to_resolution_error(err: AIProviderError) -> ResolutionError {
     match err {
         AIProviderError::ConnectionError(msg) |
         AIProviderError::RequestError(msg) |

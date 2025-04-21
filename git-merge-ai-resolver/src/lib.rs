@@ -3,6 +3,7 @@
 
 pub mod ai_provider;
 pub mod ai_resolution;
+pub mod ai_resolution_windowing;
 pub mod config;
 pub mod conflict_parser;
 pub mod fallback;
@@ -19,5 +20,6 @@ pub use resolution_engine::{ResolutionEngine, ResolutionStrategy, ResolutionResu
 pub use ai_provider::{AIProvider, AIProviderError, AIResponse};
 pub use providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 pub use ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
+pub use ai_resolution_windowing::{AIResolutionWithWindowingStrategy, AIFileResolutionWithWindowingStrategy};
 pub use fallback::FallbackResolutionStrategy;
 pub use windowing::WindowingStrategy;
