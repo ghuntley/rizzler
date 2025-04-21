@@ -155,6 +155,7 @@ This document outlines the incremental delivery plan for building the git-merge-
 4. Implement improved error handling
    - Add detailed error reporting ✅
    - Implement graceful fallbacks between providers ✅
+   - Add AWS Bedrock provider to the fallback chain ✅
    - Add retry mechanisms
 
 ### Deliverables
@@ -178,6 +179,9 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Created modular windowing approach to handle files exceeding AI model context limits
 - Fully integrated AWS Bedrock provider into AI resolution strategies
 - Added comprehensive tests for Bedrock provider in AI resolution strategies
+- Added AWS Bedrock provider to the fallback chain mechanism
+- Enhanced tests for the fallback chain to verify correct provider ordering and selection
+- Updated the default fallback order to include the Bedrock provider
 
 ## Phase 5: Testing, Documentation & Release (Weeks 11-12)
 
