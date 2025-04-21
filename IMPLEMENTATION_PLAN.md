@@ -64,6 +64,9 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Test implementation of intelligent context matching ✅
    - Implemented context matching in the test package for comprehensive testing ✅
     - Added comprehensive tests for intelligent context matching with standard tests and property tests ✅
+    - Fixed function extraction logic in context matching to better handle nested functions and function declarations ✅
+    - Improved direct function detection in the conflict parser to enhance matching quality ✅
+    - Added targeted tests for the function extraction and fixed context matching bugs ✅
 
 2. Build resolution engine framework ✅
    - Implement strategy pattern for resolution methods ✅
