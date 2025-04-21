@@ -16,6 +16,6 @@ pub use conflict_parser::{ConflictFile, ConflictRegion};
 pub use git_integration::{MergeDriverPaths, parse_merge_driver_args, process_merge};
 pub use resolution_engine::{ResolutionEngine, ResolutionStrategy, ResolutionResult};
 pub use ai_provider::{AIProvider, AIProviderError, AIResponse};
-pub use providers::{OpenAIProvider, ClaudeProvider};
+pub use providers::{OpenAIProvider, ClaudeProvider, GeminiProvider};
 pub use ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
 pub use fallback::FallbackResolutionStrategy;
