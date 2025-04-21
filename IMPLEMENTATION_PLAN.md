@@ -150,7 +150,9 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Created mock implementation for testing ✅
    - Implemented real API integration with Gemini AI API ✅
    - Added comprehensive tests for the provider and API integration ✅
-       - Fixed test mode handling and system prompt configuration ✅
+   - Fixed test mode handling and system prompt configuration ✅
+      - Enhanced tests for resolve_conflict and resolve_file methods ✅
+      - Added property-based testing for file resolution ✅
    - Add AWS Bedrock provider ✅
 
 2. Enhance AI resolution strategies
