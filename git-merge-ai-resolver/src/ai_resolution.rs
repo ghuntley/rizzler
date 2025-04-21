@@ -1,8 +1,9 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use crate::ai_provider::{AIProvider, AIProviderError, OpenAIProvider};
+use crate::ai_provider::{AIProvider, AIProviderError};
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
+use crate::providers::{OpenAIProvider, ClaudeProvider};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
 use std::env;
 use tracing::{debug, info, warn, error};
@@ -32,7 +33,15 @@ impl AIResolutionStrategy {
                     )),
                 }
             },
-            // TODO: Add more providers as they are implemented
+            "claude" | "anthropic" => {
+                match ClaudeProvider::new() {
+                    Ok(provider) => Box::new(provider),
+                    Err(err) => return Err(ResolutionError::StrategyError(
+                        format!("Failed to initialize Claude provider: {}", err)
+                    )),
+                }
+            },
+            // TODO: Add more providers as they are implemented (Google Gemini, AWS Bedrock, etc.)
             _ => return Err(ResolutionError::StrategyError(
                 format!("Unknown AI provider: {}", provider_name)
             )),
@@ -102,7 +111,15 @@ impl AIFileResolutionStrategy {
                     )),
                 }
             },
-            // TODO: Add more providers as they are implemented
+            "claude" | "anthropic" => {
+                match ClaudeProvider::new() {
+                    Ok(provider) => Box::new(provider),
+                    Err(err) => return Err(ResolutionError::StrategyError(
+                        format!("Failed to initialize Claude provider: {}", err)
+                    )),
+                }
+            },
+            // TODO: Add more providers as they are implemented (Google Gemini, AWS Bedrock, etc.)
             _ => return Err(ResolutionError::StrategyError(
                 format!("Unknown AI provider: {}", provider_name)
             )),
@@ -165,7 +182,7 @@ mod tests {
     }
     
     #[test]
-    fn test_ai_resolution_strategy_initialization() {
+    fn test_ai_resolution_strategy_initialization_openai() {
         // Set environment variables for testing
         env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
         
@@ -186,7 +203,26 @@ mod tests {
     }
     
     #[test]
-    fn test_ai_resolution_strategy_conflict_handling() {
+    fn test_ai_resolution_strategy_initialization_claude() {
+        // Set environment variables for testing
+        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("GIT_MERGE_AI_PROVIDER", "claude");
+        
+        // Test initialization with default provider (now claude)
+        let strategy = AIResolutionStrategy::new();
+        assert!(strategy.is_ok());
+        
+        // Test initialization with specific provider
+        let strategy = AIResolutionStrategy::with_provider("claude");
+        assert!(strategy.is_ok());
+        
+        // Clean up environment
+        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+        env::remove_var("GIT_MERGE_AI_PROVIDER");
+    }
+    
+    #[test]
+    fn test_ai_resolution_strategy_conflict_handling_openai() {
         // Set environment variables for testing
         env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
         
@@ -194,7 +230,7 @@ mod tests {
         let conflict = create_test_conflict("Our content\n", "Their content\n");
         
         // Create strategy
-        let strategy = AIResolutionStrategy::new().unwrap();
+        let strategy = AIResolutionStrategy::with_provider("openai").unwrap();
         
         // Check if it can handle conflicts
         assert!(strategy.can_handle(&conflict));
@@ -208,7 +244,29 @@ mod tests {
     }
     
     #[test]
-    fn test_ai_file_resolution_strategy() {
+    fn test_ai_resolution_strategy_conflict_handling_claude() {
+        // Set environment variables for testing
+        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        
+        // Create a test conflict
+        let conflict = create_test_conflict("Our content\n", "Their content\n");
+        
+        // Create strategy
+        let strategy = AIResolutionStrategy::with_provider("claude").unwrap();
+        
+        // Check if it can handle conflicts
+        assert!(strategy.can_handle(&conflict));
+        
+        // Test resolving a conflict
+        let result = strategy.resolve_conflict(&conflict);
+        assert!(result.is_ok());
+        
+        // Clean up environment
+        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+    }
+    
+    #[test]
+    fn test_ai_file_resolution_strategy_openai() {
         // Set environment variables for testing
         env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
         
@@ -217,7 +275,7 @@ mod tests {
         let conflict_file = create_test_conflict_file(vec![conflict]);
         
         // Create strategy
-        let strategy = AIFileResolutionStrategy::new().unwrap();
+        let strategy = AIFileResolutionStrategy::with_provider("openai").unwrap();
         
         // Test resolving a file
         let result = strategy.resolve_file(&conflict_file);
@@ -225,5 +283,25 @@ mod tests {
         
         // Clean up environment
         env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+    }
+    
+    #[test]
+    fn test_ai_file_resolution_strategy_claude() {
+        // Set environment variables for testing
+        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        
+        // Create a test conflict
+        let conflict = create_test_conflict("Our content\n", "Their content\n");
+        let conflict_file = create_test_conflict_file(vec![conflict]);
+        
+        // Create strategy
+        let strategy = AIFileResolutionStrategy::with_provider("claude").unwrap();
+        
+        // Test resolving a file
+        let result = strategy.resolve_file(&conflict_file);
+        assert!(result.is_ok());
+        
+        // Clean up environment
+        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
     }
 }
