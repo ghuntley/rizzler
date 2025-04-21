@@ -53,6 +53,7 @@ pub struct ResolutionConfig {
     pub default_strategy: String,
     
     /// File extension to strategy mappings
+    /// Maps file extensions to resolution strategies (e.g., "js" -> "ai", "md" -> "simple")
     #[serde(default)]
     pub extension_strategies: HashMap<String, String>,
 }
@@ -142,6 +143,24 @@ impl Config {
         Ok(config)
     }
     
+    /// Get the resolution strategy for a specific file
+    /// 
+    /// Returns the strategy name for the file based on its extension, or the default strategy if no
+    /// extension-specific strategy is configured
+    pub fn get_strategy_for_file(&self, file_path: &str) -> &str {
+        // Extract the file extension
+        let extension = Path::new(file_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("");
+        
+        // Look up the strategy for this extension, or use the default
+        self.resolution.extension_strategies
+            .get(extension)
+            .map(|s| s.as_str())
+            .unwrap_or(&self.resolution.default_strategy)
+    }
+    
     /// Load configuration from environment variables
     fn load_from_env(&mut self) {
         // AI provider configuration
@@ -175,6 +194,18 @@ impl Config {
         // Resolution configuration
         if let Ok(strategy) = env::var("GIT_MERGE_DEFAULT_STRATEGY") {
             self.resolution.default_strategy = strategy;
+        }
+        
+        // Load file extension strategies from environment variables
+        // Format: GIT_MERGE_EXTENSION_STRATEGY_<extension>=<strategy>
+        for (key, value) in env::vars() {
+            if key.starts_with("GIT_MERGE_EXTENSION_STRATEGY_") {
+                if let Some(extension) = key.strip_prefix("GIT_MERGE_EXTENSION_STRATEGY_") {
+                    let strategy = value.clone(); // Clone to avoid moved value error
+                    self.resolution.extension_strategies.insert(extension.to_string(), strategy.clone());
+                    debug!("Added extension strategy mapping: {} -> {}", extension, strategy);
+                }
+            }
         }
     }
     
@@ -279,5 +310,50 @@ mod tests {
         let mut config = Config::default();
         let result = config.set("invalid.key", "value");
         assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_file_extension_strategies() {
+        // Set environment variables for testing
+        env::set_var("GIT_MERGE_EXTENSION_STRATEGY_js", "ai");
+        env::set_var("GIT_MERGE_EXTENSION_STRATEGY_md", "simple");
+        env::set_var("GIT_MERGE_EXTENSION_STRATEGY_rs", "ai-fallback");
+        
+        let mut config = Config::default();
+        config.load_from_env();
+        
+        // Check that the extension strategies were loaded correctly
+        assert_eq!(config.resolution.extension_strategies.get("js"), Some(&"ai".to_string()));
+        assert_eq!(config.resolution.extension_strategies.get("md"), Some(&"simple".to_string()));
+        assert_eq!(config.resolution.extension_strategies.get("rs"), Some(&"ai-fallback".to_string()));
+        
+        // Clean up environment
+        env::remove_var("GIT_MERGE_EXTENSION_STRATEGY_js");
+        env::remove_var("GIT_MERGE_EXTENSION_STRATEGY_md");
+        env::remove_var("GIT_MERGE_EXTENSION_STRATEGY_rs");
+    }
+    
+    #[test]
+    fn test_get_strategy_for_file() {
+        let mut config = Config::default();
+        
+        // Set up some extension strategies
+        config.resolution.extension_strategies.insert("js".to_string(), "ai".to_string());
+        config.resolution.extension_strategies.insert("md".to_string(), "simple".to_string());
+        config.resolution.extension_strategies.insert("rs".to_string(), "ai-fallback".to_string());
+        
+        // Default strategy
+        config.resolution.default_strategy = "default-strategy".to_string();
+        
+        // Test getting strategy for different file extensions
+        assert_eq!(config.get_strategy_for_file("file.js"), "ai");
+        assert_eq!(config.get_strategy_for_file("file.md"), "simple");
+        assert_eq!(config.get_strategy_for_file("file.rs"), "ai-fallback");
+        
+        // Test getting strategy for a file with no configured extension
+        assert_eq!(config.get_strategy_for_file("file.txt"), "default-strategy");
+        
+        // Test getting strategy for a file with no extension
+        assert_eq!(config.get_strategy_for_file("file"), "default-strategy");
     }
 }

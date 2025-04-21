@@ -149,7 +149,7 @@ This document outlines the incremental delivery plan for building the git-merge-
 
 3. Add advanced configuration options
    - Per-repository configuration
-   - Per-file-type resolution strategies
+   - Per-file-type resolution strategies ✅
    - Provider-specific settings
 
 4. Implement improved error handling
@@ -182,6 +182,10 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Added AWS Bedrock provider to the fallback chain mechanism
 - Enhanced tests for the fallback chain to verify correct provider ordering and selection
 - Updated the default fallback order to include the Bedrock provider
+- Implemented per-file-type resolution strategy selection through configuration
+- Added support for configuring file extension to strategy mappings via environment variables
+- Enhanced the resolution engine to use file-specific strategies with fallback to default strategies
+- Added comprehensive tests for file-type specific strategy selection
 
 ## Phase 5: Testing, Documentation & Release (Weeks 11-12)
 

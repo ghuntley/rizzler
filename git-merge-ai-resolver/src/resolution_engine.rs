@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
+use crate::config::Config;
 use std::error::Error;
 use std::fmt;
 use std::fs;
@@ -71,14 +72,22 @@ pub struct ResolutionResult {
 /// Resolution engine for merge conflicts
 pub struct ResolutionEngine {
     strategies: Vec<Box<dyn ResolutionStrategy>>,
+    config: Config,
 }
 
 impl ResolutionEngine {
     /// Create a new resolution engine
     pub fn new() -> Self {
+        // Load configuration
+        let config = Config::load().unwrap_or_else(|_| {
+            warn!("Failed to load configuration, using defaults");
+            Config::default()
+        });
+        
         // Add default strategies
         let mut engine = ResolutionEngine {
             strategies: Vec::new(),
+            config,
         };
         
         // Add rule-based strategies
@@ -103,6 +112,15 @@ impl ResolutionEngine {
         self.strategies.push(strategy);
     }
     
+    /// Get the appropriate strategy for a file based on its type/extension
+    pub fn get_strategy_for_file(&self, file_path: &str) -> Option<&Box<dyn ResolutionStrategy>> {
+        // Get the strategy name from configuration based on file extension
+        let strategy_name = self.config.get_strategy_for_file(file_path);
+        
+        // Find the corresponding strategy
+        self.strategies.iter().find(|s| s.name() == strategy_name)
+    }
+    
     /// Resolve conflicts in a file
     pub fn resolve_file(&self, conflict_file: &ConflictFile) -> Result<ResolutionResult, ResolutionError> {
         let mut content = conflict_file.content.clone();
@@ -110,21 +128,23 @@ impl ResolutionEngine {
         let mut unresolved_count = 0;
         let mut strategy_name = "none".to_string();
         
+        // First try to get the configured strategy for this file type
+        let file_specific_strategy = self.get_strategy_for_file(&conflict_file.path);
+        
         // Process each conflict region
         for conflict in &conflict_file.conflicts {
-            // Find a strategy that can handle this conflict
+            // Flag to track if this conflict was resolved
             let mut resolved = false;
             
-            for strategy in &self.strategies {
+            // First try the file-specific strategy if available
+            if let Some(strategy) = file_specific_strategy {
                 if strategy.can_handle(conflict) {
-                    debug!("Using strategy '{}' for conflict", strategy.name());
+                    debug!("Using file-type strategy '{}' for conflict in {}", strategy.name(), conflict_file.path);
                     strategy_name = strategy.name().to_string();
                     
                     match strategy.resolve_conflict(conflict) {
                         Ok(resolved_content) => {
                             // Replace the conflict with the resolved content
-                            // This is a simplified placeholder - in a real implementation,
-                            // we would need to track line offsets as we replace content
                             content = content.replace(
                                 &format!(
                                     "<<<<<<< HEAD\n{}=======\n{}>>>>>>> branch-name",
@@ -136,11 +156,42 @@ impl ResolutionEngine {
                             
                             resolved_count += 1;
                             resolved = true;
-                            break;
                         }
                         Err(err) => {
-                            warn!("Strategy '{}' failed to resolve conflict: {}", strategy.name(), err);
-                            // Continue to the next strategy
+                            warn!("File-type strategy '{}' failed to resolve conflict: {}", strategy.name(), err);
+                            // Will fall back to trying other strategies
+                        }
+                    }
+                }
+            }
+            
+            // If not yet resolved, try all strategies in order
+            if !resolved {
+                for strategy in &self.strategies {
+                    if strategy.can_handle(conflict) {
+                        debug!("Using fallback strategy '{}' for conflict", strategy.name());
+                        strategy_name = strategy.name().to_string();
+                        
+                        match strategy.resolve_conflict(conflict) {
+                            Ok(resolved_content) => {
+                                // Replace the conflict with the resolved content
+                                content = content.replace(
+                                    &format!(
+                                        "<<<<<<< HEAD\n{}=======\n{}>>>>>>> branch-name",
+                                        conflict.our_content,
+                                        conflict.their_content
+                                    ),
+                                    &resolved_content
+                                );
+                                
+                                resolved_count += 1;
+                                resolved = true;
+                                break;
+                            }
+                            Err(err) => {
+                                warn!("Strategy '{}' failed to resolve conflict: {}", strategy.name(), err);
+                                // Continue to the next strategy
+                            }
                         }
                     }
                 }
@@ -325,7 +376,7 @@ mod tests {
     
     proptest! {
         #[test]
-        fn test_whitespace_only_strategy_prop(s in "[\w\s]{1,100}") {
+        fn test_whitespace_only_strategy_prop(s in r"[\w\s]{1,100}") {
             let strategy = WhitespaceOnlyStrategy::new();
             
             // Create versions of the string with different whitespace
@@ -367,5 +418,41 @@ mod tests {
         
         // The content should be resolved
         assert_eq!(resolution.content, "hello world\n\n");
+    }
+    
+    #[test]
+    fn test_file_type_specific_strategy() {
+        use std::env;
+        
+        // Set up environment variables for file-type specific strategies
+        env::set_var("GIT_MERGE_EXTENSION_STRATEGY_txt", "whitespace-only");
+        
+        // Create a new engine that will load the config with our environment variables
+        let engine = ResolutionEngine::new();
+        
+        // Create a conflict file with a whitespace-only conflict
+        let conflict = create_test_conflict("hello world\n", "hello   world\n");
+        let conflict_file = ConflictFile {
+            path: "file.txt".to_string(),  // Note the .txt extension
+            conflicts: vec![conflict],
+            content: "<<<<<<< HEAD\nhello world\n=======\nhello   world\n>>>>>>> branch-name\n".to_string(),
+        };
+        
+        // Verify that the engine selects the right strategy for this file type
+        let strategy = engine.get_strategy_for_file(&conflict_file.path);
+        assert!(strategy.is_some());
+        assert_eq!(strategy.unwrap().name(), "whitespace-only");
+        
+        // Resolve the conflict
+        let result = engine.resolve_file(&conflict_file);
+        assert!(result.is_ok());
+        
+        let resolution = result.unwrap();
+        assert_eq!(resolution.resolved_count, 1);
+        assert_eq!(resolution.unresolved_count, 0);
+        assert_eq!(resolution.strategy_name, "whitespace-only");
+        
+        // Clean up environment
+        env::remove_var("GIT_MERGE_EXTENSION_STRATEGY_txt");
     }
 }
