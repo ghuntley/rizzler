@@ -6,6 +6,7 @@ use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use crate::fallback::FallbackResolutionStrategy;
 use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
+use crate::retry::{RetryableProvider, RetryConfig};
 use std::env;
 use tracing::{debug, info, warn, error};
 
@@ -38,7 +39,12 @@ impl AIResolutionStrategy {
     
     /// Create a new AI resolution strategy with a specific provider
     pub fn with_provider(provider_name: &str) -> Result<Self, ResolutionError> {
-        let provider: Box<dyn AIProvider> = match provider_name.to_lowercase().as_str() {
+        // Get retry configuration setting from environment
+        let use_retries = env::var("GIT_MERGE_AI_USE_RETRIES")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(true); // Enable retries by default
+        
+        let base_provider: Box<dyn AIProvider> = match provider_name.to_lowercase().as_str() {
             "openai" => {
                 match OpenAIProvider::new() {
                     Ok(provider) => Box::new(provider),
@@ -74,6 +80,14 @@ impl AIResolutionStrategy {
             _ => return Err(ResolutionError::StrategyError(
                 format!("Unknown AI provider: {}", provider_name)
             )),
+        };
+        
+        // Wrap the provider with RetryableProvider if retries are enabled
+        let provider = if use_retries {
+            info!("Adding retry capability to {} provider", provider_name);
+            Box::new(RetryableProvider::new(base_provider)) as Box<dyn AIProvider>
+        } else {
+            base_provider
         };
         
         Ok(AIResolutionStrategy {
@@ -197,7 +211,12 @@ impl AIFileResolutionStrategy {
     
     /// Create a new AI file resolution strategy with a specific provider
     pub fn with_provider(provider_name: &str) -> Result<Self, ResolutionError> {
-        let provider: Box<dyn AIProvider> = match provider_name.to_lowercase().as_str() {
+        // Get retry configuration setting from environment
+        let use_retries = env::var("GIT_MERGE_AI_USE_RETRIES")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(true); // Enable retries by default
+        
+        let base_provider: Box<dyn AIProvider> = match provider_name.to_lowercase().as_str() {
             "openai" => {
                 match OpenAIProvider::new() {
                     Ok(provider) => Box::new(provider),
@@ -233,6 +252,14 @@ impl AIFileResolutionStrategy {
             _ => return Err(ResolutionError::StrategyError(
                 format!("Unknown AI provider: {}", provider_name)
             )),
+        };
+        
+        // Wrap the provider with RetryableProvider if retries are enabled
+        let provider = if use_retries {
+            info!("Adding retry capability to {} provider for file resolution", provider_name);
+            Box::new(RetryableProvider::new(base_provider)) as Box<dyn AIProvider>
+        } else {
+            base_provider
         };
         
         Ok(AIFileResolutionStrategy {
@@ -342,6 +369,22 @@ mod tests {
             conflicts,
             content: "<<<<<<< HEAD\nTest content\n=======\nTheir content\n>>>>>>> branch-name\n".to_string(),
         }
+    }
+    
+    // Helper function to set up environment for retry testing
+    fn setup_retry_test() {
+        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+        env::set_var("GIT_MERGE_AI_USE_RETRIES", "true");
+        env::set_var("GIT_MERGE_AI_MAX_RETRIES", "2"); // Use a smaller value for faster tests
+        env::set_var("GIT_MERGE_AI_INITIAL_BACKOFF_MS", "1"); // Use a small value for faster tests
+    }
+    
+    // Helper function to clean up environment after retry testing
+    fn cleanup_retry_test() {
+        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("GIT_MERGE_AI_USE_RETRIES");
+        env::remove_var("GIT_MERGE_AI_MAX_RETRIES");
+        env::remove_var("GIT_MERGE_AI_INITIAL_BACKOFF_MS");
     }
     
     #[test]
@@ -600,5 +643,65 @@ mod tests {
         env::remove_var("AWS_ACCESS_KEY_ID");
         env::remove_var("AWS_SECRET_ACCESS_KEY");
         env::remove_var("AWS_REGION");
+    }
+    
+    #[test]
+    fn test_ai_resolution_strategy_with_retries() {
+        // Set up environment for retry testing
+        setup_retry_test();
+        
+        // Create a test conflict
+        let conflict = create_test_conflict("Our content\n", "Their content\n");
+        
+        // Create strategy with retries enabled
+        let strategy = AIResolutionStrategy::with_provider("openai").unwrap();
+        
+        // Test resolving a conflict
+        let result = strategy.resolve_conflict(&conflict);
+        assert!(result.is_ok());
+        
+        // Clean up environment
+        cleanup_retry_test();
+    }
+    
+    #[test]
+    fn test_ai_file_resolution_strategy_with_retries() {
+        // Set up environment for retry testing
+        setup_retry_test();
+        
+        // Create a test conflict
+        let conflict = create_test_conflict("Our content\n", "Their content\n");
+        let conflict_file = create_test_conflict_file(vec![conflict]);
+        
+        // Create strategy with retries enabled
+        let strategy = AIFileResolutionStrategy::with_provider("openai").unwrap();
+        
+        // Test resolving a file
+        let result = strategy.resolve_file(&conflict_file);
+        assert!(result.is_ok());
+        
+        // Clean up environment
+        cleanup_retry_test();
+    }
+    
+    #[test]
+    fn test_retry_disabled() {
+        // Set environment variables for testing
+        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+        env::set_var("GIT_MERGE_AI_USE_RETRIES", "false"); // Explicitly disable retries
+        
+        // Create a test conflict
+        let conflict = create_test_conflict("Our content\n", "Their content\n");
+        
+        // Create strategy with retries disabled
+        let strategy = AIResolutionStrategy::with_provider("openai").unwrap();
+        
+        // Test resolving a conflict
+        let result = strategy.resolve_conflict(&conflict);
+        assert!(result.is_ok());
+        
+        // Clean up environment
+        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("GIT_MERGE_AI_USE_RETRIES");
     }
 }

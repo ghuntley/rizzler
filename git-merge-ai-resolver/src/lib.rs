@@ -10,6 +10,7 @@ pub mod fallback;
 pub mod git_integration;
 pub mod providers;
 pub mod resolution_engine;
+pub mod retry;
 pub mod windowing;
 
 // Re-export main structures for easier access
@@ -22,4 +23,5 @@ pub use providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvi
 pub use ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
 pub use ai_resolution_windowing::{AIResolutionWithWindowingStrategy, AIFileResolutionWithWindowingStrategy};
 pub use fallback::FallbackResolutionStrategy;
+pub use retry::{RetryableProvider, RetryConfig};
 pub use windowing::WindowingStrategy;

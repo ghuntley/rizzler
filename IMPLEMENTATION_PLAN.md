@@ -158,7 +158,7 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Implement graceful fallbacks between providers ✅
    - Add AWS Bedrock provider to the fallback chain ✅
    - Integrate fallback mechanism with AIResolutionStrategy ✅
-   - Add retry mechanisms
+   - Add retry mechanisms ✅
 
 ### Deliverables
 - Support for multiple AI providers ✅
@@ -192,6 +192,12 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Added automatic fallback support through GIT_MERGE_AI_USE_FALLBACK environment variable
 - Added tests to verify the fallback integration in the resolution strategies
 - Improved error handling in the AIResolutionStrategy with graceful fallback to other providers
+- Implemented retry mechanism with exponential backoff for transient errors
+- Added configurable retry settings via environment variables (GIT_MERGE_AI_MAX_RETRIES, GIT_MERGE_AI_INITIAL_BACKOFF_MS, etc.)
+- Integrated retry mechanism with all AI providers through a RetryableProvider wrapper
+- Added jitter to retry backoff times to prevent thundering herd problems
+- Created comprehensive tests for retry behavior in various scenarios
+- Made retry mechanism opt-out (enabled by default) with GIT_MERGE_AI_USE_RETRIES environment variable
 
 ## Phase 5: Testing, Documentation & Release (Weeks 11-12)
 

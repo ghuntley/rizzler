@@ -7,7 +7,7 @@ use std::error::Error;
 use std::fmt;
 
 /// Error types for AI provider operations
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AIProviderError {
     /// API connection error
     ConnectionError(String),
