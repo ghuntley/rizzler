@@ -175,9 +175,9 @@ This document outlines the incremental delivery plan for building the git-merge-
      - Integrate caching with existing AI resolution strategies ✅
 
 3. Add advanced configuration options
-   - Per-repository configuration
+   - Per-repository configuration ✅
    - Per-file-type resolution strategies ✅
-   - Provider-specific settings
+   - Provider-specific settings ✅
 
 4. Implement improved error handling
    - Add detailed error reporting ✅
