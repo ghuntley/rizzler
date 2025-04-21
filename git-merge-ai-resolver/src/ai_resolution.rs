@@ -3,6 +3,7 @@
 
 use crate::ai_provider::{AIProvider, AIProviderError};
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
+use crate::fallback::FallbackResolutionStrategy;
 use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
 use std::env;
@@ -19,7 +20,20 @@ impl AIResolutionStrategy {
         // Use the environment variable to determine the provider, defaulting to OpenAI
         let provider_name = env::var("GIT_MERGE_AI_PROVIDER").unwrap_or_else(|_| "openai".to_string());
         
-        Self::with_provider(&provider_name)
+        // Check if fallback is enabled
+        let use_fallback = env::var("GIT_MERGE_AI_USE_FALLBACK")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(false);
+        
+        if use_fallback {
+            // Get the fallback order, defaulting to all providers
+            let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+                .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
+            
+            Self::with_fallback(&fallback_order)
+        } else {
+            Self::with_provider(&provider_name)
+        }
     }
     
     /// Create a new AI resolution strategy with a specific provider
@@ -66,6 +80,26 @@ impl AIResolutionStrategy {
             provider,
         })
     }
+    
+    /// Create a new AI resolution strategy with fallback between multiple providers
+    pub fn with_fallback(providers_list: &str) -> Result<Self, ResolutionError> {
+        // Create a fallback resolution strategy
+        let fallback_strategy = FallbackResolutionStrategy::with_providers(providers_list)?;
+        
+        // Get the first provider from the fallback chain
+        let provider_names = fallback_strategy.provider_names();
+        if provider_names.is_empty() {
+            return Err(ResolutionError::StrategyError(
+                "No AI providers available for fallback strategy".to_string()
+            ));
+        }
+        
+        info!("Created AI resolution strategy with fallback chain: {:?}", provider_names);
+        
+        // We'll create an AIResolutionStrategy wrapping the fallback strategy
+        // by using the first provider from the chain as the primary provider
+        Self::with_provider(&provider_names[0])
+    }
 }
 
 impl ResolutionStrategy for AIResolutionStrategy {
@@ -96,7 +130,40 @@ impl ResolutionStrategy for AIResolutionStrategy {
         
         match self.provider.resolve_conflict(&conflict_file, conflict) {
             Ok(response) => Ok(response.content),
-            Err(err) => Err(map_ai_error_to_resolution_error(err)),
+            Err(err) => {
+                // Check if we should try to use the fallback strategy
+                if let Ok(fallback_enabled) = env::var("GIT_MERGE_AI_USE_FALLBACK") {
+                    if fallback_enabled.to_lowercase() == "true" || fallback_enabled == "1" {
+                        info!("Primary provider failed: {}", err);
+                        info!("Falling back to other providers in the fallback chain");
+                        
+                        // Get the fallback order from environment
+                        let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+                            .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
+                        
+                        // Create a fallback strategy
+                        match FallbackResolutionStrategy::with_providers(&fallback_order) {
+                            Ok(fallback_strategy) => {
+                                // Try to resolve with the fallback strategy
+                                match fallback_strategy.resolve_conflict(conflict) {
+                                    Ok(result) => return Ok(result),
+                                    Err(fallback_err) => {
+                                        warn!("Fallback strategy also failed: {}", fallback_err);
+                                        return Err(fallback_err);
+                                    }
+                                }
+                            },
+                            Err(fallback_err) => {
+                                error!("Failed to create fallback strategy: {}", fallback_err);
+                                // Continue with the original error
+                            }
+                        }
+                    }
+                }
+                
+                // If no fallback available or fallback disabled, return the original error
+                Err(map_ai_error_to_resolution_error(err))
+            },
         }
     }
 }
@@ -112,7 +179,20 @@ impl AIFileResolutionStrategy {
         // Use the environment variable to determine the provider, defaulting to OpenAI
         let provider_name = env::var("GIT_MERGE_AI_PROVIDER").unwrap_or_else(|_| "openai".to_string());
         
-        Self::with_provider(&provider_name)
+        // Check if fallback is enabled
+        let use_fallback = env::var("GIT_MERGE_AI_USE_FALLBACK")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(false);
+        
+        if use_fallback {
+            // Get the fallback order, defaulting to all providers
+            let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+                .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
+            
+            Self::with_fallback(&fallback_order)
+        } else {
+            Self::with_provider(&provider_name)
+        }
     }
     
     /// Create a new AI file resolution strategy with a specific provider
@@ -160,11 +240,64 @@ impl AIFileResolutionStrategy {
         })
     }
     
+    /// Create a new AI file resolution strategy with fallback between multiple providers
+    pub fn with_fallback(providers_list: &str) -> Result<Self, ResolutionError> {
+        // Create a fallback resolution strategy
+        let fallback_strategy = FallbackResolutionStrategy::with_providers(providers_list)?;
+        
+        // Get the first provider from the fallback chain
+        let provider_names = fallback_strategy.provider_names();
+        if provider_names.is_empty() {
+            return Err(ResolutionError::StrategyError(
+                "No AI providers available for fallback strategy".to_string()
+            ));
+        }
+        
+        info!("Created AI file resolution strategy with fallback chain: {:?}", provider_names);
+        
+        // Similar to AIResolutionStrategy, we'll use the first provider from the chain
+        // as the primary provider. The fallback will be handled at a higher level.
+        Self::with_provider(&provider_names[0])
+    }
+    
     /// Resolve all conflicts in a file at once
     pub fn resolve_file(&self, conflict_file: &ConflictFile) -> Result<String, ResolutionError> {
         match self.provider.resolve_file(conflict_file) {
             Ok(response) => Ok(response.content),
-            Err(err) => Err(map_ai_error_to_resolution_error(err)),
+            Err(err) => {
+                // Check if we should try to use the fallback strategy
+                if let Ok(fallback_enabled) = env::var("GIT_MERGE_AI_USE_FALLBACK") {
+                    if fallback_enabled.to_lowercase() == "true" || fallback_enabled == "1" {
+                        info!("Primary provider failed: {}", err);
+                        info!("Falling back to other providers in the fallback chain");
+                        
+                        // Get the fallback order from environment
+                        let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+                            .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
+                        
+                        // Create a fallback strategy
+                        match FallbackResolutionStrategy::with_providers(&fallback_order) {
+                            Ok(fallback_strategy) => {
+                                // Try to resolve with the fallback strategy
+                                match fallback_strategy.resolve_file(conflict_file) {
+                                    Ok(result) => return Ok(result),
+                                    Err(fallback_err) => {
+                                        warn!("Fallback strategy also failed: {}", fallback_err);
+                                        return Err(fallback_err);
+                                    }
+                                }
+                            },
+                            Err(fallback_err) => {
+                                error!("Failed to create fallback strategy: {}", fallback_err);
+                                // Continue with the original error
+                            }
+                        }
+                    }
+                }
+                
+                // If no fallback available or fallback disabled, return the original error
+                Err(map_ai_error_to_resolution_error(err))
+            },
         }
     }
 }

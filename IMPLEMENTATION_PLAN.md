@@ -156,6 +156,7 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Add detailed error reporting ✅
    - Implement graceful fallbacks between providers ✅
    - Add AWS Bedrock provider to the fallback chain ✅
+   - Integrate fallback mechanism with AIResolutionStrategy ✅
    - Add retry mechanisms
 
 ### Deliverables
@@ -186,6 +187,10 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Added support for configuring file extension to strategy mappings via environment variables
 - Enhanced the resolution engine to use file-specific strategies with fallback to default strategies
 - Added comprehensive tests for file-type specific strategy selection
+- Integrated the fallback mechanism with AIResolutionStrategy and AIFileResolutionStrategy
+- Added automatic fallback support through GIT_MERGE_AI_USE_FALLBACK environment variable
+- Added tests to verify the fallback integration in the resolution strategies
+- Improved error handling in the AIResolutionStrategy with graceful fallback to other providers
 
 ## Phase 5: Testing, Documentation & Release (Weeks 11-12)
 
