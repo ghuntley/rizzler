@@ -3,7 +3,7 @@
 
 use crate::ai_provider::{AIProvider, AIProviderError};
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
-use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider};
+use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
 use std::env;
 use tracing::{debug, info, warn, error};
@@ -49,7 +49,14 @@ impl AIResolutionStrategy {
                     )),
                 }
             },
-            // TODO: Add more providers as they are implemented (AWS Bedrock, etc.)
+            "bedrock" | "aws" => {
+                match BedrockProvider::new() {
+                    Ok(provider) => Box::new(provider),
+                    Err(err) => return Err(ResolutionError::StrategyError(
+                        format!("Failed to initialize AWS Bedrock provider: {}", err)
+                    )),
+                }
+            },
             _ => return Err(ResolutionError::StrategyError(
                 format!("Unknown AI provider: {}", provider_name)
             )),
@@ -135,7 +142,14 @@ impl AIFileResolutionStrategy {
                     )),
                 }
             },
-            // TODO: Add more providers as they are implemented (AWS Bedrock, etc.)
+            "bedrock" | "aws" => {
+                match BedrockProvider::new() {
+                    Ok(provider) => Box::new(provider),
+                    Err(err) => return Err(ResolutionError::StrategyError(
+                        format!("Failed to initialize AWS Bedrock provider: {}", err)
+                    )),
+                }
+            },
             _ => return Err(ResolutionError::StrategyError(
                 format!("Unknown AI provider: {}", provider_name)
             )),
@@ -380,5 +394,78 @@ mod tests {
         
         // Clean up environment
         env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+    }
+    
+    #[test]
+    fn test_ai_resolution_strategy_initialization_bedrock() {
+        // Set environment variables for testing
+        env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
+        env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
+        env::set_var("AWS_REGION", "us-east-1");
+        env::set_var("GIT_MERGE_AI_PROVIDER", "bedrock");
+        
+        // Test initialization with default provider (now bedrock)
+        let strategy = AIResolutionStrategy::new();
+        assert!(strategy.is_ok());
+        
+        // Test initialization with specific provider
+        let strategy = AIResolutionStrategy::with_provider("bedrock");
+        assert!(strategy.is_ok());
+        
+        // Clean up environment
+        env::remove_var("AWS_ACCESS_KEY_ID");
+        env::remove_var("AWS_SECRET_ACCESS_KEY");
+        env::remove_var("AWS_REGION");
+        env::remove_var("GIT_MERGE_AI_PROVIDER");
+    }
+    
+    #[test]
+    fn test_ai_resolution_strategy_conflict_handling_bedrock() {
+        // Set environment variables for testing
+        env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
+        env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
+        env::set_var("AWS_REGION", "us-east-1");
+        
+        // Create a test conflict
+        let conflict = create_test_conflict("Our content\n", "Their content\n");
+        
+        // Create strategy
+        let strategy = AIResolutionStrategy::with_provider("bedrock").unwrap();
+        
+        // Check if it can handle conflicts
+        assert!(strategy.can_handle(&conflict));
+        
+        // Test resolving a conflict
+        let result = strategy.resolve_conflict(&conflict);
+        assert!(result.is_ok());
+        
+        // Clean up environment
+        env::remove_var("AWS_ACCESS_KEY_ID");
+        env::remove_var("AWS_SECRET_ACCESS_KEY");
+        env::remove_var("AWS_REGION");
+    }
+    
+    #[test]
+    fn test_ai_file_resolution_strategy_bedrock() {
+        // Set environment variables for testing
+        env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
+        env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
+        env::set_var("AWS_REGION", "us-east-1");
+        
+        // Create a test conflict
+        let conflict = create_test_conflict("Our content\n", "Their content\n");
+        let conflict_file = create_test_conflict_file(vec![conflict]);
+        
+        // Create strategy
+        let strategy = AIFileResolutionStrategy::with_provider("bedrock").unwrap();
+        
+        // Test resolving a file
+        let result = strategy.resolve_file(&conflict_file);
+        assert!(result.is_ok());
+        
+        // Clean up environment
+        env::remove_var("AWS_ACCESS_KEY_ID");
+        env::remove_var("AWS_SECRET_ACCESS_KEY");
+        env::remove_var("AWS_REGION");
     }
 }
