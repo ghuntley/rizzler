@@ -1,0 +1,448 @@
+// Copyright (c) 2025 Geoffrey Huntley
+// SPDX-License-Identifier: MIT
+
+use crate::ai_provider::{AIProvider, AIProviderConfig, AIProviderError, AIResponse, TokenUsage};
+use crate::conflict_parser::{ConflictFile, ConflictRegion};
+use std::collections::HashMap;
+use std::env;
+use tracing::{debug, info, warn, error};
+
+/// AWS Bedrock provider implementation
+pub struct BedrockProvider {
+    config: AIProviderConfig,
+    aws_region: String,
+}
+
+impl BedrockProvider {
+    /// Create a new AWS Bedrock provider from environment variables
+    pub fn new() -> Result<Self, AIProviderError> {
+        // Get AWS credentials from environment variable chain
+        // We don't directly check for AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+        // as AWS SDK will use the credential chain (env vars, config files, IAM roles)
+        
+        // Get AWS region, which is required for Bedrock
+        let aws_region = env::var("AWS_REGION")
+            .or_else(|_| env::var("AWS_DEFAULT_REGION"))
+            .map_err(|_| AIProviderError::ConfigError(
+                "Missing AWS region. Set AWS_REGION or AWS_DEFAULT_REGION environment variable".to_string()
+            ))?;
+        
+        // Get model information
+        let model = env::var("GIT_MERGE_BEDROCK_MODEL").unwrap_or_else(|_| {
+            // Default to Anthropic Claude 3 Sonnet on Bedrock if not specified
+            "anthropic.claude-3-sonnet-20240229-v1:0".to_string()
+        });
+        
+        // Get timeout configuration
+        let timeout_seconds = env::var("GIT_MERGE_AI_TIMEOUT")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(60);
+        
+        // Get custom system prompt if provided
+        let system_prompt = env::var("GIT_MERGE_AI_SYSTEM_PROMPT").ok();
+        
+        // Create additional settings map
+        let mut additional_settings = HashMap::new();
+        if let Ok(max_tokens) = env::var("GIT_MERGE_BEDROCK_MAX_TOKENS") {
+            additional_settings.insert("max_tokens".to_string(), max_tokens);
+        }
+        if let Ok(temperature) = env::var("GIT_MERGE_BEDROCK_TEMPERATURE") {
+            additional_settings.insert("temperature".to_string(), temperature);
+        }
+        
+        Ok(BedrockProvider {
+            config: AIProviderConfig {
+                name: "bedrock".to_string(),
+                api_key: "aws_credentials".to_string(), // Placeholder - we use AWS credential chain
+                model,
+                base_url: None, // AWS Bedrock doesn't use custom base URL
+                org_id: None,   // AWS Bedrock doesn't use org ID
+                system_prompt,
+                timeout_seconds,
+                additional_settings,
+            },
+            aws_region,
+        })
+    }
+    
+    /// Create a new Bedrock provider with custom configuration (primarily for testing)
+    pub fn new_with_config(env_vars: HashMap<String, String>) -> Self {
+        // Get AWS region
+        let aws_region = env_vars.get("AWS_REGION")
+            .or_else(|| env_vars.get("AWS_DEFAULT_REGION"))
+            .cloned()
+            .unwrap_or_else(|| "us-east-1".to_string());
+        
+        // Get model information
+        let model = env_vars.get("GIT_MERGE_BEDROCK_MODEL")
+            .cloned()
+            .unwrap_or_else(|| "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+        
+        // Get timeout configuration
+        let timeout_seconds = env_vars.get("GIT_MERGE_AI_TIMEOUT")
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(60);
+        
+        // Get custom system prompt if provided
+        let system_prompt = env_vars.get("GIT_MERGE_AI_SYSTEM_PROMPT").cloned();
+        
+        // Create additional settings map
+        let mut additional_settings = HashMap::new();
+        if let Some(max_tokens) = env_vars.get("GIT_MERGE_BEDROCK_MAX_TOKENS") {
+            additional_settings.insert("max_tokens".to_string(), max_tokens.clone());
+        }
+        if let Some(temperature) = env_vars.get("GIT_MERGE_BEDROCK_TEMPERATURE") {
+            additional_settings.insert("temperature".to_string(), temperature.clone());
+        }
+        
+        BedrockProvider {
+            config: AIProviderConfig {
+                name: "bedrock".to_string(),
+                api_key: "aws_credentials".to_string(),
+                model,
+                base_url: None,
+                org_id: None,
+                system_prompt,
+                timeout_seconds,
+                additional_settings,
+            },
+            aws_region,
+        }
+    }
+    
+    /// Create a test request for testing purposes
+    pub fn create_request(&self, system_prompt: &str, user_prompt: &str) -> String {
+        // This is a simplified representation of what would be sent to Bedrock
+        // In a real implementation, this would create the appropriate JSON structure
+        // based on the model family (Anthropic Claude, Amazon Titan, etc.)
+        
+        // For Claude models on Bedrock
+        if self.config.model.contains("anthropic.claude") {
+            format!(
+                "{{\n  \"model\": \"{}\",\n  \"anthropic_version\": \"bedrock-2023-05-31\",\n  \"system\": \"{}\",\n  \"messages\": [{{\n    \"role\": \"user\",\n    \"content\": \"{}\"\n  }}]\n}}",
+                self.config.model,
+                system_prompt.replace('"', "\""),
+                user_prompt.replace('"', "\"")
+            )
+        } else {
+            // Generic placeholder for other model types
+            format!(
+                "{{\n  \"model\": \"{}\",\n  \"prompt\": \"{}\"\n}}",
+                self.config.model,
+                user_prompt.replace('"', "\"")
+            )
+        }
+    }
+    
+    /// Create a user prompt for resolving a specific conflict
+    fn create_user_prompt(&self, conflict_file: &ConflictFile, conflict: &ConflictRegion) -> String {
+        // Different prompt format depending on the model
+        if self.config.model.contains("anthropic.claude") {
+            // Claude-style prompt
+            format!(
+                "I need help resolving a Git merge conflict in the file: {}\n\n\
+                The file contains a conflict between line {} and {}:\n\n\
+                OUR VERSION (current branch):\n```\n{}```\n\n\
+                THEIR VERSION (incoming branch):\n```\n{}```\n\n\
+                BASE VERSION (common ancestor):\n```\n{}```\n\n\
+                Please resolve this conflict and provide only the final resolved content that should replace \
+                the conflict. Preserve the intent of both changes if possible or choose the most appropriate \
+                version if they are in direct conflict. Do not include conflict markers in your response.",
+                conflict_file.path,
+                conflict.start_line,
+                conflict.end_line,
+                conflict.our_content,
+                conflict.their_content,
+                conflict.base_content
+            )
+        } else {
+            // Generic prompt format for other models
+            format!(
+                "Resolve the following Git merge conflict in file {}:\n\n\
+                Lines {}-{}:\n\n\
+                OUR VERSION:\n```\n{}```\n\n\
+                THEIR VERSION:\n```\n{}```\n\n\
+                BASE VERSION:\n```\n{}```\n\n\
+                Provide only the resolved content without any explanation or conflict markers.",
+                conflict_file.path,
+                conflict.start_line,
+                conflict.end_line,
+                conflict.our_content,
+                conflict.their_content,
+                conflict.base_content
+            )
+        }
+    }
+    
+    /// Create a user prompt for resolving an entire file
+    fn create_file_prompt(&self, conflict_file: &ConflictFile) -> String {
+        let mut conflicts_text = String::new();
+        
+        for (i, conflict) in conflict_file.conflicts.iter().enumerate() {
+            conflicts_text.push_str(&format!(
+                "CONFLICT {}:\nBetween lines {} and {}\n\
+                OUR VERSION:\n```\n{}```\n\
+                THEIR VERSION:\n```\n{}```\n\
+                BASE VERSION:\n```\n{}```\n\n",
+                i + 1,
+                conflict.start_line,
+                conflict.end_line,
+                conflict.our_content,
+                conflict.their_content,
+                conflict.base_content
+            ));
+        }
+        
+        if self.config.model.contains("anthropic.claude") {
+            // Claude-style prompt
+            format!(
+                "I need help resolving Git merge conflicts in the file: {}\n\n\
+                The file has {} conflict(s):\n\n{}\n\
+                Please provide the entire resolved file content with all conflicts resolved. \
+                Preserve the intent of both changes whenever possible. \
+                Do not include conflict markers in your response.",
+                conflict_file.path,
+                conflict_file.conflicts.len(),
+                conflicts_text
+            )
+        } else {
+            // Generic prompt format for other models
+            format!(
+                "Resolve all Git merge conflicts in the file: {}\n\n\
+                The file has {} conflict(s):\n\n{}\n\
+                Provide the entire resolved file content without any explanation or conflict markers.",
+                conflict_file.path,
+                conflict_file.conflicts.len(),
+                conflicts_text
+            )
+        }
+    }
+    
+    /// Parse the response from Bedrock
+    fn parse_response(&self, response_text: &str) -> Result<String, AIProviderError> {
+        // For now, a simple implementation that just returns the text
+        // In a real implementation, we would need to handle JSON parsing and extract the response content
+        // based on the model-specific response format
+        Ok(response_text.to_string())
+    }
+    
+    /// Check if AWS credentials are available
+    fn check_aws_credentials(&self) -> bool {
+        // In a real implementation, we would check if AWS credentials are available
+        // Either through environment variables, config files, or IAM roles
+        // For now, we'll just check if common environment variables are set
+        env::var("AWS_ACCESS_KEY_ID").is_ok() && env::var("AWS_SECRET_ACCESS_KEY").is_ok()
+    }
+}
+
+impl AIProvider for BedrockProvider {
+    fn name(&self) -> &str {
+        "AWS Bedrock"
+    }
+    
+    fn is_available(&self) -> bool {
+        // Check if AWS credentials are available and region is set
+        self.check_aws_credentials() && !self.aws_region.is_empty()
+    }
+    
+    fn config(&self) -> &AIProviderConfig {
+        &self.config
+    }
+    
+    fn resolve_conflict(
+        &self,
+        conflict_file: &ConflictFile,
+        conflict: &ConflictRegion,
+    ) -> Result<AIResponse, AIProviderError> {
+        // Check if the provider is available
+        if !self.is_available() {
+            return Err(AIProviderError::ConfigError(
+                "AWS Bedrock provider is not available. AWS credentials or region missing".to_string()
+            ));
+        }
+        
+        let _system_prompt = self.create_system_prompt();
+        let user_prompt = self.create_user_prompt(conflict_file, conflict);
+        
+        info!("Sending conflict to AWS Bedrock for resolution with model: {}", self.config.model);
+        debug!("User prompt: {}", user_prompt);
+        
+        // This is a placeholder - in a real implementation, we would send the request to the Bedrock API
+        // and parse the response. For now, we'll just return a mock response for testing.
+        
+        // Mock response - this would be replaced with actual API call logic
+        let mock_response = "This is a mock response from AWS Bedrock.\nIn a real implementation, we would call the Bedrock API and get a real response.";
+        
+        let resolved_content = self.parse_response(mock_response)?;
+        
+        Ok(AIResponse {
+            content: resolved_content,
+            explanation: Some("Mock explanation from AWS Bedrock for testing".to_string()),
+            token_usage: Some(TokenUsage {
+                input_tokens: 150,
+                output_tokens: 80,
+                total_tokens: 230,
+            }),
+            model: self.config.model.clone(),
+        })
+    }
+    
+    fn resolve_file(
+        &self,
+        conflict_file: &ConflictFile,
+    ) -> Result<AIResponse, AIProviderError> {
+        // Check if the provider is available
+        if !self.is_available() {
+            return Err(AIProviderError::ConfigError(
+                "AWS Bedrock provider is not available. AWS credentials or region missing".to_string()
+            ));
+        }
+        
+        let _system_prompt = self.create_system_prompt();
+        let user_prompt = self.create_file_prompt(conflict_file);
+        
+        info!("Sending entire file to AWS Bedrock for resolution with model: {}", self.config.model);
+        debug!("User prompt: {}", user_prompt);
+        
+        // This is a placeholder - in a real implementation, we would send the request to the Bedrock API
+        // and parse the response. For now, we'll just return a mock response for testing.
+        
+        // Mock response - this would be replaced with actual API call logic
+        let mock_response = "This is a mock response from AWS Bedrock for the entire file.\nIn a real implementation, we would call the Bedrock API and get a real response.";
+        
+        let resolved_content = self.parse_response(mock_response)?;
+        
+        Ok(AIResponse {
+            content: resolved_content,
+            explanation: Some("Mock explanation from AWS Bedrock for testing".to_string()),
+            token_usage: Some(TokenUsage {
+                input_tokens: 300,
+                output_tokens: 150,
+                total_tokens: 450,
+            }),
+            model: self.config.model.clone(),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::conflict_parser::ConflictRegion;
+    use std::env;
+    use proptest::prelude::*;
+    
+    // Helper function to create a test conflict region
+    fn create_test_conflict(our_content: &str, their_content: &str) -> ConflictRegion {
+        ConflictRegion {
+            base_content: "Base content\n".to_string(),
+            our_content: our_content.to_string(),
+            their_content: their_content.to_string(),
+            start_line: 1,
+            end_line: 5,
+        }
+    }
+    
+    // Helper function to create a test conflict file
+    fn create_test_conflict_file(conflicts: Vec<ConflictRegion>) -> ConflictFile {
+        ConflictFile {
+            path: "test.txt".to_string(),
+            conflicts,
+            content: "<<<<<<< HEAD\nTest content\n=======\nTheir content\n>>>>>>> branch-name\n".to_string(),
+        }
+    }
+    
+    #[test]
+    fn test_bedrock_provider_config() {
+        // Create mock environment variables
+        let mut env_vars = HashMap::new();
+        env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
+        env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+        env_vars.insert("GIT_MERGE_AI_SYSTEM_PROMPT".to_string(), "Test system prompt".to_string());
+        env_vars.insert("GIT_MERGE_AI_TIMEOUT".to_string(), "45".to_string());
+        
+        // Create provider with mock config
+        let provider = BedrockProvider::new_with_config(env_vars);
+        
+        // Check configuration
+        assert_eq!(provider.aws_region, "us-east-1");
+        assert_eq!(provider.config().model, "anthropic.claude-3-sonnet-20240229-v1:0");
+        assert_eq!(provider.config().system_prompt, Some("Test system prompt".to_string()));
+        assert_eq!(provider.config().timeout_seconds, 45);
+    }
+    
+    #[test]
+    fn test_create_user_prompt() {
+        // Create mock environment variables
+        let mut env_vars = HashMap::new();
+        env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
+        env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+        
+        // Create provider with mock config
+        let provider = BedrockProvider::new_with_config(env_vars);
+        
+        // Create a test conflict
+        let conflict = create_test_conflict("Our content\nwith multiple lines\n", "Their content\nalso with lines\n");
+        let conflict_file = create_test_conflict_file(vec![conflict.clone()]);
+        
+        // Create user prompt
+        let prompt = provider.create_user_prompt(&conflict_file, &conflict);
+        
+        // Check prompt content
+        assert!(prompt.contains("Git merge conflict"));
+        assert!(prompt.contains("OUR VERSION"));
+        assert!(prompt.contains("THEIR VERSION"));
+        assert!(prompt.contains("BASE VERSION"));
+        assert!(prompt.contains("Our content"));
+        assert!(prompt.contains("Their content"));
+        assert!(prompt.contains("Base content"));
+    }
+    
+    #[test]
+    fn test_create_request() {
+        // Create mock environment variables
+        let mut env_vars = HashMap::new();
+        env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
+        env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+        
+        // Create provider with mock config
+        let provider = BedrockProvider::new_with_config(env_vars);
+        
+        // Create test prompts
+        let system_prompt = "You are a helpful assistant for resolving Git merge conflicts.";
+        let user_prompt = "Please resolve this conflict:\n<<<<<<< HEAD\nuser code\n=======\ntheir code\n>>>>>>> branch";
+        
+        // Create request
+        let request = provider.create_request(system_prompt, user_prompt);
+        
+        // Check request content
+        assert!(request.contains("anthropic.claude-3-sonnet"));
+        assert!(request.contains("You are a helpful assistant"));
+        assert!(request.contains("Please resolve this conflict"));
+    }
+    
+    proptest! {
+        #[test]
+        fn test_create_user_prompt_prop(our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
+            // Create mock environment variables
+            let mut env_vars = HashMap::new();
+            env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
+            env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+            
+            // Create provider with mock config
+            let provider = BedrockProvider::new_with_config(env_vars);
+            
+            // Create a test conflict
+            let conflict = create_test_conflict(&our_content, &their_content);
+            let conflict_file = create_test_conflict_file(vec![conflict.clone()]);
+            
+            // Create user prompt
+            let prompt = provider.create_user_prompt(&conflict_file, &conflict);
+            
+            // Check that the prompt contains the content we provided
+            prop_assert!(prompt.contains(&our_content));
+            prop_assert!(prompt.contains(&their_content));
+        }
+    }
+}

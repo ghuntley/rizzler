@@ -140,7 +140,7 @@ This document outlines the incremental delivery plan for building the git-merge-
 1. Implement additional AI providers
    - Add Anthropic (Claude) provider ✅
    - Add Google (Gemini) provider ✅
-   - Add AWS Bedrock provider
+   - Add AWS Bedrock provider ✅
 
 2. Enhance AI resolution strategies
    - Improve prompt engineering
@@ -166,12 +166,13 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Restructured AI provider implementation with a providers directory
 - Implemented Claude provider with Claude-3 models support
 - Implemented Gemini provider with Google AI models support
+- Implemented AWS Bedrock provider with support for models hosted on AWS Bedrock (including Claude models)
 - Updated AI resolution strategies to support provider selection for all providers
-- Added comprehensive unit tests for Claude and Gemini providers
+- Added comprehensive unit tests for Claude, Gemini, and Bedrock providers
 - Implemented fallback mechanism between AI providers for improved reliability
 - Added configurable provider order and fallback chain via environment variables
 - Enhanced error reporting and handling with provider-specific error messages
-- Updated default fallback chain to include all available providers (OpenAI, Claude, Gemini)
+- Updated default fallback chain to include all available providers (OpenAI, Claude, Gemini, Bedrock)
 
 ## Phase 5: Testing, Documentation & Release (Weeks 11-12)
 
