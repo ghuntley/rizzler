@@ -111,12 +111,68 @@ struct DoctorArgs {
 }
 
 fn setup_logging() {
-    let filter = EnvFilter::try_from_env("GIT_MERGE_LOG_LEVEL")
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    // Get the global configuration (or use default if not available)
+    let config = git_merge_ai_resolver::Config::load_global().unwrap_or_default();
     
-    fmt()
-        .with_env_filter(filter)
-        .init();
+    // Get log level from environment, config, or use default
+    let log_level = std::env::var("GIT_MERGE_LOG_LEVEL")
+        .unwrap_or_else(|_| config.logging.level.clone());
+        
+    let filter = EnvFilter::try_from_env("GIT_MERGE_LOG_LEVEL")
+        .unwrap_or_else(|_| EnvFilter::new(&log_level));
+    
+    // Check if log file path is specified in environment or config
+    let log_file = std::env::var("GIT_MERGE_LOG_FILE")
+        .ok()
+        .or(config.logging.file.clone());
+    
+    if let Some(log_file) = log_file {
+        // Setup file logging with rotation
+        use tracing_appender::rolling::{RollingFileAppender, Rotation};
+        
+        // Create a directory for the log file if it doesn't exist
+        if let Some(dir) = std::path::Path::new(&log_file).parent() {
+            std::fs::create_dir_all(dir).ok();
+        }
+        
+        // Determine rotation frequency from config
+        let rotation = match config.logging.rotation.frequency.as_str() {
+            "hourly" => Rotation::HOURLY,
+            "daily" => Rotation::DAILY,
+            "never" => Rotation::NEVER,
+            _ => Rotation::DAILY, // Default to daily if unknown
+        };
+        
+        // Create a rolling file appender
+        let file_appender = RollingFileAppender::new(
+            rotation,
+            std::path::Path::new(&log_file).parent().unwrap_or_else(|| std::path::Path::new(".")),
+            std::path::Path::new(&log_file).file_name().unwrap_or_else(|| std::ffi::OsStr::new("git-merge-ai-resolver.log")),
+        );
+        
+        // Create a non-blocking writer for better performance
+        let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+        
+        // Keep the guard alive for the duration of the program
+        // This is important to ensure logs are properly flushed
+        std::mem::forget(_guard);
+        
+        // Initialize the subscriber with file and stdout logging
+        fmt()
+            .with_env_filter(filter)
+            .with_writer(non_blocking)
+            .init();
+            
+        info!("Logging initialized with file output to {} (rotation: {})", 
+             log_file, config.logging.rotation.frequency);
+        info!("Log retention policy: {} files, max size: {}", 
+             config.logging.rotation.max_files, config.logging.rotation.max_file_size);
+    } else {
+        // Initialize with stdout logging only
+        fmt()
+            .with_env_filter(filter)
+            .init();
+    }
 }
 
 fn main() {

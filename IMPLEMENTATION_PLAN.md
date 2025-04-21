@@ -29,7 +29,7 @@ This document outlines the incremental delivery plan for building the git-merge-
 
 4. Implement logging and basic diagnostics ✅
    - Setup tracing infrastructure ✅
-   - Implement log file rotation (TODO)
+   - Implement log file rotation ✅
    - Add basic metrics collection (TODO)
    - Implement doctor command for system diagnostics ✅
 

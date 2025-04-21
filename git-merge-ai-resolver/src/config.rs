@@ -75,12 +75,44 @@ pub struct LoggingConfig {
     
     /// Path to log file
     pub file: Option<String>,
+    
+    /// Log rotation settings
+    #[serde(default)]
+    pub rotation: LogRotationConfig,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct LogRotationConfig {
+    /// Rotation frequency (daily, hourly, never)
+    #[serde(default = "default_rotation_frequency")]
+    pub frequency: String,
+    
+    /// Maximum number of log files to keep
+    #[serde(default = "default_max_files")]
+    pub max_files: usize,
+    
+    /// Maximum size of each log file (e.g., "10MB")
+    #[serde(default = "default_max_file_size")]
+    pub max_file_size: String,
+}
+
+impl Default for LogRotationConfig {
+    fn default() -> Self {
+        Self {
+            frequency: default_rotation_frequency(),
+            max_files: default_max_files(),
+            max_file_size: default_max_file_size(),
+        }
+    }
 }
 
 // Default values for configuration
 fn default_timeout() -> u64 { 30 }
 fn default_strategy() -> String { "ai".to_string() }
 fn default_log_level() -> String { "info".to_string() }
+fn default_rotation_frequency() -> String { "daily".to_string() }
+fn default_max_files() -> usize { 7 } // Keep logs for a week by default
+fn default_max_file_size() -> String { "10MB".to_string() }
 
 /// Error types for configuration operations
 #[derive(Debug)]
@@ -135,12 +167,21 @@ impl Config {
     pub fn load() -> Result<Self, ConfigError> {
         let mut config = Config::default();
         
-        // Load environment variables
+        // First try to load from Git config (repository or global)
+        // If this fails, it's not a critical error - we'll just use defaults and env vars
+        if let Err(err) = config.load_from_git_config() {
+            debug!("Could not load from Git config: {}", err);
+        }
+        
+        // Then load from environment variables (these take precedence over Git config)
         config.load_from_env();
         
-        // TODO: Load from Git config
-        
         Ok(config)
+    }
+    
+    /// Load the global configuration, returns default config if loading fails
+    pub fn load_global() -> Option<Self> {
+        Self::load().ok()
     }
     
     /// Get the resolution strategy for a specific file
@@ -161,10 +202,109 @@ impl Config {
             .unwrap_or(&self.resolution.default_strategy)
     }
     
+    /// Load configuration from Git config
+    pub fn load_from_git_config(&mut self) -> Result<(), ConfigError> {
+        // Check if we're in a Git repository by running 'git rev-parse --is-inside-work-tree'
+        let git_check = std::process::Command::new("git")
+            .args(["rev-parse", "--is-inside-work-tree"])
+            .output();
+            
+        // If the command fails or returns false, we're not in a Git repository
+        match git_check {
+            Err(e) => {
+                return Err(ConfigError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to execute git command: {}", e)
+                )));
+            },
+            Ok(output) => {
+                if !output.status.success() || String::from_utf8_lossy(&output.stdout).trim() != "true" {
+                    return Err(ConfigError::IoError(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Not in a Git repository".to_string()
+                    )));
+                }
+            }
+        }
+        
+        // Helper function to run git config for a specific key
+        let get_git_config = |key: &str| -> Option<String> {
+            let output = std::process::Command::new("git")
+                .args(["config", "--get", key])
+                .output();
+            
+            if let Ok(output) = output {
+                if output.status.success() {
+                    let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if !value.is_empty() {
+                        return Some(value);
+                    }
+                }
+            }
+            
+            None
+        };
+        
+        // Try to get AI provider configuration using Git's simpler key format
+        if let Some(value) = get_git_config("merge-ai-resolver.default-provider") {
+            self.ai_provider.default_provider = Some(value);
+        }
+        
+        if let Some(value) = get_git_config("merge-ai-resolver.default-model") {
+            self.ai_provider.default_model = Some(value);
+        }
+        
+        if let Some(value) = get_git_config("merge-ai-resolver.system-prompt") {
+            self.ai_provider.system_prompt = Some(value);
+        }
+        
+        if let Some(value) = get_git_config("merge-ai-resolver.timeout-seconds") {
+            if let Ok(timeout) = value.parse::<u64>() {
+                self.ai_provider.timeout_seconds = timeout;
+            }
+        }
+        
+        // Resolution configuration
+        if let Some(value) = get_git_config("merge-ai-resolver.resolution.default_strategy") {
+            self.resolution.default_strategy = value;
+        }
+        
+        // Logging configuration
+        if let Some(value) = get_git_config("merge-ai-resolver.logging.level") {
+            self.logging.level = value;
+        }
+        
+        if let Some(value) = get_git_config("merge-ai-resolver.logging.file") {
+            self.logging.file = Some(value);
+        }
+        
+        // For extension strategies, we need to list all keys with the extension_strategy prefix
+        let output = std::process::Command::new("git")
+            .args(["config", "--get-regexp", r"^merge-ai-resolver.extension_strategy."])
+            .output();
+        
+        if let Ok(output) = output {
+            if output.status.success() {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                
+                for line in output_str.lines() {
+                    if let Some((key, value)) = line.split_once(' ') {
+                        if let Some(extension) = key.strip_prefix("merge-ai-resolver.extension_strategy.") {
+                            self.resolution.extension_strategies.insert(extension.to_string(), value.trim().to_string());
+                            debug!("Added extension strategy mapping from Git config: {} -> {}", extension, value.trim());
+                        }
+                    }
+                }
+            }
+        }
+        
+        return Ok(());
+    }
+    
     /// Load configuration from environment variables
-    fn load_from_env(&mut self) {
+    pub fn load_from_env(&mut self) {
         // AI provider configuration
-        if let Ok(provider) = env::var("GIT_MERGE_AI_PROVIDER") {
+        if let Ok(provider) = env::var("GIT_MERGE_AI_PROVIDER_DEFAULT") {
             self.ai_provider.default_provider = Some(provider);
         }
         
@@ -239,8 +379,87 @@ impl Config {
             "resolution.default_strategy" => self.resolution.default_strategy = value.to_string(),
             "logging.level" => self.logging.level = value.to_string(),
             "logging.file" => self.logging.file = Some(value.to_string()),
-            _ => return Err(ConfigError::InvalidConfig(format!("Unknown configuration key: {}", key))),
+            _ => {
+                // Check if it's an extension strategy
+                if key.starts_with("resolution.extension_strategies.") {
+                    if let Some(extension) = key.strip_prefix("resolution.extension_strategies.") {
+                        self.resolution.extension_strategies.insert(extension.to_string(), value.to_string());
+                        return Ok(());
+                    }
+                }
+                
+                return Err(ConfigError::InvalidConfig(format!("Unknown configuration key: {}", key)));
+            }
         }
+        Ok(())
+    }
+    
+    /// Save configuration to Git config
+    /// 
+    /// This method saves the current configuration to Git config.
+    /// If global is true, it saves to global Git config, otherwise to local repository config.
+    pub fn save_to_git_config(&self, global: bool) -> Result<(), ConfigError> {
+        let config_scope = if global { "--global" } else { "--local" };
+        
+        // Helper function to run git config command
+        let set_git_config = |key: &str, value: &str| -> Result<(), ConfigError> {
+            let output = std::process::Command::new("git")
+                .args(["config", config_scope, key, value])
+                .output()
+                .map_err(|e| ConfigError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to execute git config command: {}", e)
+                )))?;
+            
+            if !output.status.success() {
+                return Err(ConfigError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Git config command failed: {}", String::from_utf8_lossy(&output.stderr))
+                )));
+            }
+            
+            Ok(())
+        };
+        
+        // Save AI provider configuration using Git's dot notation
+        if let Some(provider) = &self.ai_provider.default_provider {
+            set_git_config("merge-ai-resolver.ai.provider.default_provider", provider)?;
+        }
+        
+        if let Some(model) = &self.ai_provider.default_model {
+            set_git_config("merge-ai-resolver.ai.provider.default_model", model)?;
+        }
+        
+        if let Some(prompt) = &self.ai_provider.system_prompt {
+            set_git_config("merge-ai-resolver.ai.provider.system_prompt", prompt)?;
+        }
+        
+        set_git_config(
+            "merge-ai-resolver.ai.provider.timeout_seconds",
+            &self.ai_provider.timeout_seconds.to_string()
+        )?;
+        
+        // Save resolution configuration
+        set_git_config(
+            "merge-ai-resolver.resolution.default_strategy",
+            &self.resolution.default_strategy
+        )?;
+        
+        // Save extension strategies
+        for (extension, strategy) in &self.resolution.extension_strategies {
+            set_git_config(
+                &format!("merge-ai-resolver.extension_strategy.{}", extension),
+                strategy
+            )?;
+        }
+        
+        // Save logging configuration
+        set_git_config("merge-ai-resolver.logging.level", &self.logging.level)?;
+        
+        if let Some(file) = &self.logging.file {
+            set_git_config("merge-ai-resolver.logging.file", file)?;
+        }
+        
         Ok(())
     }
 }
@@ -288,7 +507,7 @@ mod tests {
     #[test]
     fn test_config_load_from_env() {
         // Set environment variables
-        env::set_var("GIT_MERGE_AI_PROVIDER", "openai");
+        env::set_var("GIT_MERGE_AI_PROVIDER_DEFAULT", "openai");
         env::set_var("GIT_MERGE_AI_MODEL", "gpt-4");
         env::set_var("GIT_MERGE_LOG_LEVEL", "debug");
         
@@ -300,7 +519,7 @@ mod tests {
         assert_eq!(config.logging.level, "debug".to_string());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_PROVIDER");
+        env::remove_var("GIT_MERGE_AI_PROVIDER_DEFAULT");
         env::remove_var("GIT_MERGE_AI_MODEL");
         env::remove_var("GIT_MERGE_LOG_LEVEL");
     }
