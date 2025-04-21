@@ -130,7 +130,6 @@ fn test_resolve_conflict() {
 }
 
 #[test]
-#[ignore = "This test is causing authentication issues even in test mode"]
 fn test_resolve_file() {
     // Force test mode
     env::set_var("TEST_MODE", "true");
@@ -144,15 +143,21 @@ fn test_resolve_file() {
     // Create two test conflicts
     let conflict1 = create_test_conflict("Function 1 from our branch\n", "Function 1 from their branch\n");
     let conflict2 = create_test_conflict("Function 2 from our branch\n", "Function 2 from their branch\n");
-    let _conflict_file = create_test_conflict_file(vec![conflict1, conflict2]);
+    let conflict_file = create_test_conflict_file(vec![conflict1, conflict2]);
     
     // Check if the provider was created successfully
     assert_eq!(provider.name(), "gemini");
     assert!(provider.is_available());
     assert_eq!(provider.config().api_key, "test-api-key");
     
-    // We should test this, but there seems to be an issue with the TEST_MODE not being properly detected
-    // in the resolve_file method, so we'll ignore this part of the test for now
+    // Resolve entire file
+    let result = provider.resolve_file(&conflict_file);
+    assert!(result.is_ok(), "Failed to resolve file: {:?}", result.err());
+    
+    let response = result.unwrap();
+    assert!(!response.content.is_empty());
+    assert!(response.explanation.is_some());
+    assert!(response.token_usage.is_some());
     
     // Clean up environment
     env::remove_var("GIT_MERGE_GEMINI_API_KEY");
@@ -160,12 +165,18 @@ fn test_resolve_file() {
 }
 
 #[test]
-#[ignore = "This test is flaky due to shared test environment issues"]
 fn test_empty_api_key() {
     // In test mode, the provider is always created with a test API key
     // regardless of environment variable, so we can just verify this behavior
     
+    // Save the current TEST_MODE value to restore it later
+    let original_test_mode = env::var("TEST_MODE").ok();
+    
+    // Force test mode
+    env::set_var("TEST_MODE", "true");
+    
     // Make sure the API key is not set (though it shouldn't matter in test mode)
+    let original_api_key = env::var("GIT_MERGE_GEMINI_API_KEY").ok();
     env::remove_var("GIT_MERGE_GEMINI_API_KEY");
     
     // This should succeed in test mode with a test key
@@ -177,8 +188,16 @@ fn test_empty_api_key() {
     assert!(provider.is_available());
     assert_eq!(provider.config().api_key, "test-api-key");
     
-    // Re-set the key to not affect other tests
-    env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+    // Restore the original environment variables
+    match original_api_key {
+        Some(key) => env::set_var("GIT_MERGE_GEMINI_API_KEY", key),
+        None => env::remove_var("GIT_MERGE_GEMINI_API_KEY"),
+    }
+    
+    match original_test_mode {
+        Some(mode) => env::set_var("TEST_MODE", mode),
+        None => env::remove_var("TEST_MODE"),
+    }
 }
 
 proptest! {
