@@ -334,7 +334,7 @@ mod tests {
     
     proptest! {
         #[test]
-        fn test_create_user_prompt_prop(our_content in "[\w\s]{1,100}", their_content in "[\w\s]{1,100}") {
+        fn test_create_user_prompt_prop(our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
             // Set the API key for testing
             env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
             
