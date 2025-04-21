@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 use crate::ai_provider::{AIProvider, AIProviderError};
+use crate::cache::AIResolutionCache;
+use crate::caching_provider::CachingAIProvider;
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use crate::fallback::FallbackResolutionStrategy;
 use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
 use crate::retry::{RetryableProvider, RetryConfig};
 use std::env;
+use std::sync::Arc;
 use tracing::{debug, info, warn, error};
 
 /// AI-based resolution strategy using supported AI providers
@@ -44,6 +47,11 @@ impl AIResolutionStrategy {
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(true); // Enable retries by default
         
+        // Get cache configuration setting from environment
+        let use_cache = env::var("GIT_MERGE_AI_USE_CACHE")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(true); // Enable cache by default
+            
         let base_provider: Box<dyn AIProvider> = match provider_name.to_lowercase().as_str() {
             "openai" => {
                 match OpenAIProvider::new() {
@@ -82,12 +90,20 @@ impl AIResolutionStrategy {
             )),
         };
         
-        // Wrap the provider with RetryableProvider if retries are enabled
-        let provider = if use_retries {
+        // First wrap with RetryableProvider if retries are enabled
+        let retryable_provider = if use_retries {
             info!("Adding retry capability to {} provider", provider_name);
             Box::new(RetryableProvider::new(base_provider)) as Box<dyn AIProvider>
         } else {
             base_provider
+        };
+        
+        // Then wrap with CachingAIProvider if caching is enabled
+        let provider = if use_cache {
+            info!("Adding caching capability to {} provider", provider_name);
+            Box::new(CachingAIProvider::new(retryable_provider)) as Box<dyn AIProvider>
+        } else {
+            retryable_provider
         };
         
         Ok(AIResolutionStrategy {
@@ -216,6 +232,11 @@ impl AIFileResolutionStrategy {
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(true); // Enable retries by default
         
+        // Get cache configuration setting from environment
+        let use_cache = env::var("GIT_MERGE_AI_USE_CACHE")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(true); // Enable cache by default
+            
         let base_provider: Box<dyn AIProvider> = match provider_name.to_lowercase().as_str() {
             "openai" => {
                 match OpenAIProvider::new() {
@@ -254,12 +275,20 @@ impl AIFileResolutionStrategy {
             )),
         };
         
-        // Wrap the provider with RetryableProvider if retries are enabled
-        let provider = if use_retries {
+        // First wrap with RetryableProvider if retries are enabled
+        let retryable_provider = if use_retries {
             info!("Adding retry capability to {} provider for file resolution", provider_name);
             Box::new(RetryableProvider::new(base_provider)) as Box<dyn AIProvider>
         } else {
             base_provider
+        };
+        
+        // Then wrap with CachingAIProvider if caching is enabled
+        let provider = if use_cache {
+            info!("Adding caching capability to {} provider for file resolution", provider_name);
+            Box::new(CachingAIProvider::new(retryable_provider)) as Box<dyn AIProvider>
+        } else {
+            retryable_provider
         };
         
         Ok(AIFileResolutionStrategy {
