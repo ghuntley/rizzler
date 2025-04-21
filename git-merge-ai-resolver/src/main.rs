@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use clap::{Parser, Subcommand};
-use git_merge_ai_resolver::{Config, conflict_parser, git_integration};
+use git_merge_ai_resolver::{Config, conflict_parser, git_integration, git_setup};
 use std::env;
 use std::process;
 use tracing::{debug, error, info, warn};
@@ -48,6 +48,10 @@ struct SetupArgs {
     /// Specify file extensions to associate with the merge driver
     #[arg(long = "extensions")]
     extensions: Vec<String>,
+    
+    /// Don't actually modify any files (just print what would happen)
+    #[arg(long = "dry-run")]
+    dry_run: bool,
 }
 
 #[derive(Parser)]
@@ -55,6 +59,10 @@ struct ConfigArgs {
     /// Configuration subcommand
     #[command(subcommand)]
     action: Option<ConfigActions>,
+    
+    /// Apply configuration globally (user's .gitconfig)
+    #[arg(short, long)]
+    global: bool,
 }
 
 #[derive(Subcommand)]
@@ -62,7 +70,7 @@ enum ConfigActions {
     /// Get the value of a specific configuration key
     Get { key: String },
     
-    /// Set a configuration value
+    /// Set a configuration value (use --global flag to set in user's global .gitconfig)
     Set { key: String, value: String },
     
     /// List all configuration values
@@ -96,6 +104,10 @@ struct DoctorArgs {
     /// Check specific component
     #[arg(long)]
     component: Option<String>,
+    
+    /// Write diagnostic results to specified file
+    #[arg(short, long)]
+    output_file: Option<String>,
 }
 
 fn setup_logging() {
@@ -126,14 +138,25 @@ fn main() {
     match &cli.command {
         Some(Commands::Setup(args)) => {
             info!("Setting up git-merge-ai-resolver as a Git merge driver");
-            // TODO: Implement setup functionality
-            println!("Setting up git-merge-ai-resolver as a Git merge driver");
-            if args.global {
-                println!("Configuring globally");
-            } else if args.local {
-                println!("Configuring locally");
+            
+            // Execute the setup
+            match git_setup::setup_git_integration(args.global, args.local, &args.extensions, args.dry_run) {
+                Ok(_) => {
+                    println!("Successfully set up git-merge-ai-resolver as a Git merge driver");
+                    if args.global {
+                        println!("Configured globally in user's .gitconfig");
+                    } else {
+                        println!("Configured locally for current repository");
+                    }
+                    println!("File extensions configured: {:?}", args.extensions);
+                    println!("You can now use git-merge-ai-resolver to resolve merge conflicts in these file types");
+                },
+                Err(err) => {
+                    error!("Setup failed: {}", err);
+                    eprintln!("Error: {}", err);
+                    process::exit(1);
+                }
             }
-            println!("File extensions: {:?}", args.extensions);
         }
         Some(Commands::Config(args)) => {
             match &args.action {
@@ -149,13 +172,54 @@ fn main() {
                 }
                 Some(ConfigActions::Set { key, value }) => {
                     info!("Setting config value for key: {} to value: {}", key, value);
-                    // TODO: Implement config set with saving
-                    println!("Setting {} = {}", key, value);
+                    
+                    // First update the config in memory
+                    let mut config = Config::load().unwrap_or_default();
+                    match config.set(key, value) {
+                        Ok(_) => {
+                            // Save the updated config to Git config (global or local based on flag)
+                            match config.save_to_git_config(args.global) {
+                                Ok(_) => println!("Successfully set {} = {}", key, value),
+                                Err(err) => {
+                                    eprintln!("Error saving to Git config: {}", err);
+                                    process::exit(1);
+                                }
+                            }
+                        },
+                        Err(err) => {
+                            eprintln!("Error setting configuration: {}", err);
+                            process::exit(1);
+                        }
+                    }
                 }
                 Some(ConfigActions::List) => {
                     info!("Listing all configuration values");
-                    // TODO: Implement proper config listing
-                    println!("Configuration values will be listed here");
+                    
+                    // Load the current configuration
+                    let config = Config::load().unwrap_or_default();
+                    
+                    // Print the configuration values in a structured format
+                    println!("AI Provider Configuration:");
+                    println!("  default_provider: {}", config.ai_provider.default_provider.as_deref().unwrap_or("<not set>"));
+                    println!("  default_model: {}", config.ai_provider.default_model.as_deref().unwrap_or("<not set>"));
+                    println!("  system_prompt: {}", config.ai_provider.system_prompt.as_deref().unwrap_or("<not set>"));
+                    println!("  timeout_seconds: {}", config.ai_provider.timeout_seconds);
+                    
+                    println!("\nResolution Configuration:");
+                    println!("  default_strategy: {}", config.resolution.default_strategy);
+                    
+                    if !config.resolution.extension_strategies.is_empty() {
+                        println!("  Extension Strategies:");
+                        for (extension, strategy) in &config.resolution.extension_strategies {
+                            println!("    {}: {}", extension, strategy);
+                        }
+                    } else {
+                        println!("  No extension-specific strategies configured");
+                    }
+                    
+                    println!("\nLogging Configuration:");
+                    println!("  level: {}", config.logging.level);
+                    println!("  file: {}", config.logging.file.as_deref().unwrap_or("<not set>"));
                 }
                 None => {
                     println!("Use 'config get', 'config set', or 'config list'");
@@ -228,8 +292,32 @@ fn main() {
         }
         Some(Commands::Doctor(args)) => {
             info!("Running diagnostics");
-            println!("Diagnostic results will be shown here");
-            // TODO: Implement doctor functionality
+            
+            // Run all diagnostic checks
+            let results = git_merge_ai_resolver::diagnostics::run_diagnostics();
+            
+            // Format and display results
+            let formatted_results = git_merge_ai_resolver::diagnostics::format_diagnostic_results(&results);
+            println!("{}", formatted_results);
+            
+            // Write results to file if specified
+            if let Some(output_file) = &args.output_file {
+                match git_merge_ai_resolver::diagnostics::write_diagnostic_results(&results, Some(output_file)) {
+                    Ok(_) => {
+                        println!("Diagnostic results written to {}", output_file);
+                    },
+                    Err(err) => {
+                        error!("Failed to write diagnostic results: {}", err);
+                        eprintln!("Error: {}", err);
+                    }
+                }
+            }
+            
+            // Exit with error code if any checks failed
+            let fail_count = results.iter().filter(|r| r.status == git_merge_ai_resolver::diagnostics::DiagnosticStatus::Fail).count();
+            if fail_count > 0 {
+                process::exit(1);
+            }
         }
         None => {
             // When no subcommand is provided, act as a Git merge driver

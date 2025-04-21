@@ -19,9 +19,11 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Create entry point handling Git's merge driver arguments (%O, %A, %B, %P) ✅
    - Implement basic file reading/writing capabilities ✅
    - Add setup command to configure Git integration ✅
+     - Enhanced setup command with global/local configuration options ✅
+     - Added file extension configuration via .gitattributes ✅
 
 3. Create configuration system ✅
-   - Parse Git configuration files (partial)
+   - Parse Git configuration files (partial) ✅
    - Implement environment variable support ✅
    - Create configuration validation ✅
 
@@ -29,6 +31,7 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Setup tracing infrastructure ✅
    - Implement log file rotation (TODO)
    - Add basic metrics collection (TODO)
+   - Implement doctor command for system diagnostics ✅
 
 ### Deliverables
 - Functioning CLI binary that can be registered as a Git merge driver ✅
