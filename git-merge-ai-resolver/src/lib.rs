@@ -9,6 +9,7 @@ pub mod fallback;
 pub mod git_integration;
 pub mod providers;
 pub mod resolution_engine;
+pub mod windowing;
 
 // Re-export main structures for easier access
 pub use config::Config;
@@ -19,3 +20,4 @@ pub use ai_provider::{AIProvider, AIProviderError, AIResponse};
 pub use providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 pub use ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
 pub use fallback::FallbackResolutionStrategy;
+pub use windowing::WindowingStrategy;

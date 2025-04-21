@@ -144,7 +144,7 @@ This document outlines the incremental delivery plan for building the git-merge-
 
 2. Enhance AI resolution strategies
    - Improve prompt engineering
-   - Add context windowing for large files
+   - Add context windowing for large files ✅
    - Implement caching for similar conflicts
 
 3. Add advanced configuration options
@@ -173,6 +173,9 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Added configurable provider order and fallback chain via environment variables
 - Enhanced error reporting and handling with provider-specific error messages
 - Updated default fallback chain to include all available providers (OpenAI, Claude, Gemini, Bedrock)
+- Implemented context windowing strategy for handling large files with conflicts
+- Added unit tests for windowing strategy with different file sizes and conflict scenarios
+- Created modular windowing approach to handle files exceeding AI model context limits
 
 ## Phase 5: Testing, Documentation & Release (Weeks 11-12)
 
