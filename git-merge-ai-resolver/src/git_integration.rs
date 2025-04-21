@@ -88,12 +88,53 @@ pub fn parse_merge_driver_args(args: &[String]) -> Result<MergeDriverPaths, Merg
 /// - 0: Success - conflicts resolved
 /// - Non-zero: Failure - manual resolution needed
 pub fn process_merge(paths: &MergeDriverPaths) -> i32 {
-    // TODO: Implement actual conflict resolution
-    // For now, we'll just log the paths and return failure (1)
+    use crate::conflict_parser;
+    use crate::resolution_engine::ResolutionEngine;
+    
     info!("Processing merge for file: {}", paths.conflict_path);
     
-    // This is a placeholder - we'll need to implement real conflict resolution
-    1 // Return non-zero to indicate manual resolution is needed
+    // Parse the conflict file
+    let conflict_file = match conflict_parser::parse_conflict_file(&paths.conflict_path) {
+        Ok(file) => file,
+        Err(err) => {
+            error!("Failed to parse conflict file: {}", err);
+            return 1; // Return failure
+        }
+    };
+    
+    // Create a resolution engine
+    let engine = ResolutionEngine::new();
+    
+    // Resolve conflicts
+    let resolution_result = match engine.resolve_file(&conflict_file) {
+        Ok(result) => result,
+        Err(err) => {
+            error!("Failed to resolve conflicts: {}", err);
+            return 1; // Return failure
+        }
+    };
+    
+    // Check if all conflicts were resolved
+    if resolution_result.unresolved_count > 0 {
+        warn!(
+            "Not all conflicts were resolved: {} unresolved, {} resolved",
+            resolution_result.unresolved_count,
+            resolution_result.resolved_count
+        );
+        return 1; // Return failure if any conflicts weren't resolved
+    }
+    
+    // Write the resolved content back to the file
+    match engine.write_resolution(&resolution_result, Some(&paths.conflict_path)) {
+        Ok(_) => {
+            info!("Successfully resolved all conflicts in {}", paths.conflict_path);
+            0 // Return success
+        }
+        Err(err) => {
+            error!("Failed to write resolved content: {}", err);
+            1 // Return failure
+        }
+    }
 }
 
 #[cfg(test)]

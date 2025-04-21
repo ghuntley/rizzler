@@ -166,13 +166,58 @@ fn main() {
             info!("Resolving conflicts in file: {}", args.file);
             
             // Parse conflict file
-            match conflict_parser::parse_conflict_file(&args.file) {
-                Ok(conflict_file) => {
-                    println!("Found {} conflicts in file", conflict_file.conflicts.len());
-                    // TODO: Implement resolution strategies
-                }
+            let conflict_file = match conflict_parser::parse_conflict_file(&args.file) {
+                Ok(file) => file,
                 Err(err) => {
                     error!("Failed to parse conflict file: {}", err);
+                    eprintln!("Error: {}", err);
+                    process::exit(1);
+                }
+            };
+            
+            println!("Found {} conflicts in file", conflict_file.conflicts.len());
+            
+            // Create resolution engine
+            let engine = git_merge_ai_resolver::resolution_engine::ResolutionEngine::new();
+            
+            // Resolve conflicts
+            let resolution_result = match args.strategy.as_deref() {
+                Some(strategy) => {
+                    match engine.resolve_with_strategy(&conflict_file, strategy) {
+                        Ok(result) => result,
+                        Err(err) => {
+                            error!("Failed to resolve conflicts with strategy {}: {}", strategy, err);
+                            eprintln!("Error: {}", err);
+                            process::exit(1);
+                        }
+                    }
+                },
+                None => {
+                    match engine.resolve_file(&conflict_file) {
+                        Ok(result) => result,
+                        Err(err) => {
+                            error!("Failed to resolve conflicts: {}", err);
+                            eprintln!("Error: {}", err);
+                            process::exit(1);
+                        }
+                    }
+                }
+            };
+            
+            // Write the result
+            let output_path = args.output.as_deref().unwrap_or(&args.file);
+            match engine.write_resolution(&resolution_result, Some(output_path)) {
+                Ok(_) => {
+                    println!(
+                        "Resolved {}/{} conflicts using strategy '{}'", 
+                        resolution_result.resolved_count,
+                        resolution_result.resolved_count + resolution_result.unresolved_count,
+                        resolution_result.strategy_name
+                    );
+                    println!("Output written to {}", output_path);
+                },
+                Err(err) => {
+                    error!("Failed to write resolution result: {}", err);
                     eprintln!("Error: {}", err);
                     process::exit(1);
                 }

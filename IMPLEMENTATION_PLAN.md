@@ -47,35 +47,42 @@ This document outlines the incremental delivery plan for building the git-merge-
 ## Phase 2: Conflict Resolution Core (Weeks 3-4)
 
 ### Goals
-- Implement conflict parsing and representation
-- Create basic rule-based resolution strategies
-- Build resolution engine framework
+- Implement conflict parsing and representation ✅
+- Create basic rule-based resolution strategies ✅
+- Build resolution engine framework ✅
 
 ### Tasks
-1. Implement conflict parser
-   - Parse Git conflict markers
-   - Extract base, ours, and theirs versions
-   - Create data structures to represent conflicts
+1. Implement conflict parser ✅
+   - Parse Git conflict markers ✅
+   - Extract base, ours, and theirs versions ✅
+   - Create data structures to represent conflicts ✅
 
-2. Build resolution engine framework
-   - Implement strategy pattern for resolution methods
-   - Create plugin system for resolution strategies
-   - Implement fallback mechanism
+2. Build resolution engine framework ✅
+   - Implement strategy pattern for resolution methods ✅
+   - Create plugin system for resolution strategies ✅
+   - Implement fallback mechanism ✅
 
-3. Implement basic rule-based resolution strategies
-   - Add simple resolution heuristics (e.g., whitespace-only changes)
-   - Implement trivial conflict resolution patterns
-   - Create unit tests for resolution strategies
+3. Implement basic rule-based resolution strategies ✅
+   - Add simple resolution heuristics (e.g., whitespace-only changes) ✅
+   - Implement trivial conflict resolution patterns ✅
+   - Create unit tests for resolution strategies ✅
 
-4. Create file manager
-   - Collect files involved in merge
-   - Identify files with conflicts
-   - Manage file operations during resolution
+4. Create file manager (Partial)
+   - Collect files involved in merge (TODO)
+   - Identify files with conflicts (Partial)
+   - Manage file operations during resolution ✅
 
 ### Deliverables
-- Conflict parser that extracts structured information from Git conflict markers
-- Resolution engine with basic rule-based strategies
-- Ability to handle simple conflicts without AI
+- Conflict parser that extracts structured information from Git conflict markers ✅
+- Resolution engine with basic rule-based strategies ✅
+- Ability to handle simple conflicts without AI ✅
+
+### Completed Implementation Notes
+- Implemented resolution engine with strategy pattern architecture
+- Created whitespace-only conflict resolution strategy
+- Added integration with Git merge driver interface
+- Implemented comprehensive unit and property-based tests
+- Added support for resolving conflicts via command line with strategy selection
 
 ## Phase 3: AI Integration (Weeks 5-7)
 
