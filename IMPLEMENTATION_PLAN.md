@@ -176,6 +176,8 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Implemented context windowing strategy for handling large files with conflicts
 - Added unit tests for windowing strategy with different file sizes and conflict scenarios
 - Created modular windowing approach to handle files exceeding AI model context limits
+- Fully integrated AWS Bedrock provider into AI resolution strategies
+- Added comprehensive tests for Bedrock provider in AI resolution strategies
 
 ## Phase 5: Testing, Documentation & Release (Weeks 11-12)
 
