@@ -73,25 +73,37 @@ fn test_create_user_prompt() {
     // Just verify the provider was created successfully
     assert_eq!(provider.name(), "gemini");
     assert!(provider.is_available());
+    assert_eq!(provider.config().api_key, "test-api-key");
     
     // Clean up environment
     env::remove_var("GIT_MERGE_GEMINI_API_KEY");
 }
 
 #[test]
+#[cfg_attr(not(test), ignore = "This test only works in test mode")]
 fn test_resolve_conflict() {
+    // Force test mode
+    // This test should use the mock implementation in the test configuration
+    env::set_var("TEST_MODE", "true");
+    
     // Set the API key for testing
     env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
     
     // Create a provider
     let provider = GeminiProvider::new().unwrap();
     
+    // Verify it's using the test API key
+    assert_eq!(provider.config().api_key, "test-api-key");
+    
     // Create a test conflict
     let conflict = create_test_conflict("Our content\n", "Their content\n");
     let conflict_file = create_test_conflict_file(vec![conflict.clone()]);
     
-    // Resolve conflict
+    // Resolve conflict - this should use the mock implementation in test mode
     let result = provider.resolve_conflict(&conflict_file, &conflict);
+    if let Err(e) = &result {
+        panic!("Resolving conflict failed with error: {:?}", e);
+    }
     assert!(result.is_ok());
     
     let response = result.unwrap();
@@ -101,6 +113,7 @@ fn test_resolve_conflict() {
     
     // Clean up environment
     env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+    env::remove_var("TEST_MODE");
 }
 
 #[test]

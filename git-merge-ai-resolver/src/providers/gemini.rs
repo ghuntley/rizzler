@@ -154,7 +154,7 @@ impl GeminiProvider {
                 input_tokens,
                 output_tokens,
                 total_tokens: input_tokens + output_tokens,
-            });
+            })
         }
         
         // If we couldn't extract token usage, return None
@@ -164,13 +164,11 @@ impl GeminiProvider {
     /// Create a new Gemini provider
     pub fn new() -> Result<Self, AIProviderError> {
         // In test mode, always use a test key for convenience
-        #[cfg(test)]
-        {
+        if cfg!(test) || env::var("TEST_MODE").unwrap_or_else(|_| "false".to_string()) == "true" {
             return Self::new_with_api_key("test-api-key".to_string());
         }
         
         // In non-test mode, require a real key
-        #[cfg(not(test))]
         {
             // Try to get the API key from environment variable
             match env::var("GIT_MERGE_GEMINI_API_KEY") {
@@ -231,6 +229,19 @@ impl GeminiProvider {
                 timeout_seconds,
                 additional_settings,
             },
+        })
+    }
+    
+    /// Create a system prompt for Gemini
+    /// This is a helper method specific to the Gemini provider
+    /// and does not override the trait method
+    fn gemini_system_prompt(&self) -> String {
+        self.config().system_prompt.clone().unwrap_or_else(|| {
+            "You are an expert software developer helping to resolve Git merge conflicts. \
+            Analyze the provided code conflicts and resolve them in a way that preserves \
+            the intent of both changes whenever possible. When resolving conflicts, consider \
+            the context of the entire file and follow the existing code style. Provide a \
+            clean resolution without conflict markers.".to_string()
         })
     }
     
@@ -309,7 +320,7 @@ impl AIProvider for GeminiProvider {
             ));
         }
         
-        let system_prompt = self.create_system_prompt();
+        let system_prompt = self.gemini_system_prompt();
         let user_prompt = self.create_user_prompt(conflict_file, conflict);
         
         info!("Sending conflict to Gemini for resolution with model: {}", self.config.model);
@@ -317,13 +328,12 @@ impl AIProvider for GeminiProvider {
         debug!("User prompt: {}", user_prompt);
         
         // In test mode, return a mock response
-        #[cfg(test)]
-        {
+        if cfg!(test) || env::var("TEST_MODE").unwrap_or_else(|_| "false".to_string()) == "true" {
             let content = "// Mock resolved content from Gemini API\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n".to_string();
             let token_count = user_prompt.chars().count() as u32;
             let output_count = content.chars().count() as u32;
             
-            return Ok(AIResponse {
+            Ok(AIResponse {
                 content,
                 explanation: Some("Resolved by Gemini AI (mock implementation)".to_string()),
                 token_usage: Some(TokenUsage {
@@ -332,12 +342,9 @@ impl AIProvider for GeminiProvider {
                     total_tokens: token_count + output_count,
                 }),
                 model: self.config.model.clone(),
-            });
-        }
-        
-        // In non-test mode, make a real API call to Gemini
-        #[cfg(not(test))]
-        {
+            })
+        } else {
+            // In non-test mode, make a real API call to Gemini
             // Create a request to the Gemini API
             let api_endpoint = self.get_api_endpoint();
             
@@ -375,16 +382,13 @@ impl AIProvider for GeminiProvider {
             let explanation = self.extract_explanation(&response_json);
             let token_usage = self.extract_token_usage(&response_json);
             
-            return Ok(AIResponse {
+            Ok(AIResponse {
                 content,
                 explanation,
                 token_usage,
                 model: self.config.model.clone(),
-            });
+            })
         }
-        
-        // This part is only reached in cfg(test) mode due to the early return above
-        unreachable!()
     }
     
     fn resolve_file(
@@ -398,7 +402,7 @@ impl AIProvider for GeminiProvider {
             ));
         }
         
-        let system_prompt = self.create_system_prompt();
+        let system_prompt = self.gemini_system_prompt();
         let user_prompt = self.create_file_prompt(conflict_file);
         
         info!("Sending entire file to Gemini for resolution with model: {}", self.config.model);
@@ -406,14 +410,13 @@ impl AIProvider for GeminiProvider {
         debug!("User prompt: {}", user_prompt);
         
         // In test mode, return a mock response
-        #[cfg(test)]
-        {
+        if cfg!(test) || env::var("TEST_MODE").unwrap_or_else(|_| "false".to_string()) == "true" {
             let content = "// Mock resolved content for entire file\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n\nfunction subtract(a, b) {\n  return a - b;\n}\n".to_string();
             
             let token_count = user_prompt.chars().count() as u32;
             let output_count = content.chars().count() as u32;
             
-            return Ok(AIResponse {
+            Ok(AIResponse {
                 content,
                 explanation: Some("Resolved entire file by Gemini AI (mock implementation)".to_string()),
                 token_usage: Some(TokenUsage {
@@ -422,12 +425,9 @@ impl AIProvider for GeminiProvider {
                     total_tokens: token_count + output_count,
                 }),
                 model: self.config.model.clone(),
-            });
-        }
-        
-        // In non-test mode, make a real API call to Gemini
-        #[cfg(not(test))]
-        {
+            })
+        } else {
+            // In non-test mode, make a real API call to Gemini
             // Create a request to the Gemini API
             let api_endpoint = self.get_api_endpoint();
             
@@ -465,16 +465,13 @@ impl AIProvider for GeminiProvider {
             let explanation = self.extract_explanation(&response_json);
             let token_usage = self.extract_token_usage(&response_json);
             
-            return Ok(AIResponse {
+            Ok(AIResponse {
                 content,
                 explanation,
                 token_usage,
                 model: self.config.model.clone(),
-            });
+            })
         }
-        
-        // This part is only reached in cfg(test) mode due to the early return above
-        unreachable!()
     }
 }
 
