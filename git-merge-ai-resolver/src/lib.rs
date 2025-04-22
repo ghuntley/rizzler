@@ -13,6 +13,7 @@ pub mod fallback;
 pub mod git_integration;
 pub mod git_setup;
 pub mod providers;
+pub mod prompt_engineering;
 pub mod resolution_engine;
 pub mod retry;
 pub mod windowing;
@@ -29,6 +30,7 @@ pub use diagnostics::{DiagnosticResult, DiagnosticStatus, run_diagnostics, forma
 pub use fallback::FallbackResolutionStrategy;
 pub use git_integration::{MergeDriverPaths, parse_merge_driver_args, process_merge};
 pub use git_setup::{setup_git_integration, SetupError};
+pub use prompt_engineering::{PromptGenerator, PromptTemplate};
 pub use providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 pub use resolution_engine::{ResolutionEngine, ResolutionStrategy, ResolutionResult};
 pub use retry::{RetryableProvider, RetryConfig};

@@ -3,6 +3,7 @@
 
 use crate::ai_provider::{AIProvider, AIProviderConfig, AIProviderError, AIResponse, TokenUsage};
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
+use crate::prompt_engineering::{PromptGenerator, PromptTemplate};
 use std::collections::HashMap;
 use std::env;
 use tracing::{debug, info, warn, error};
@@ -13,6 +14,7 @@ use serde_json::{json, Value};
 /// Google Gemini provider implementation
 pub struct GeminiProvider {
     config: AIProviderConfig,
+    prompt_generator: PromptGenerator,
 }
 
 impl GeminiProvider {
@@ -218,6 +220,17 @@ impl GeminiProvider {
             additional_settings.insert("temperature".to_string(), temperature);
         }
         
+        // Determine which prompt template to use based on environment variable
+        // Default to the Enhanced template for better results
+        let prompt_template = match env::var("GIT_MERGE_AI_PROMPT_TEMPLATE").ok().as_deref() {
+            Some("default") => PromptTemplate::Default,
+            Some("context-aware") => PromptTemplate::ContextAware,
+            _ => PromptTemplate::Enhanced, // Default to enhanced
+        };
+        
+        // Create prompt generator with the selected template
+        let prompt_generator = PromptGenerator::new(prompt_template);
+        
         Ok(GeminiProvider {
             config: AIProviderConfig {
                 name: "gemini".to_string(),
@@ -229,67 +242,20 @@ impl GeminiProvider {
                 timeout_seconds,
                 additional_settings,
             },
+            prompt_generator,
         })
     }
     
-    /// Create a system prompt for Gemini
-    /// This is a helper method specific to the Gemini provider
-    /// and does not override the trait method
-    fn gemini_system_prompt(&self) -> String {
-        self.config().system_prompt.clone().unwrap_or_else(|| {
-            "You are an expert software developer helping to resolve Git merge conflicts. \
-            Analyze the provided code conflicts and resolve them in a way that preserves \
-            the intent of both changes whenever possible. When resolving conflicts, consider \
-            the context of the entire file and follow the existing code style. Provide a \
-            clean resolution without conflict markers.".to_string()
-        })
-    }
-    
-    /// Create a user prompt for resolving a specific conflict
-    fn create_user_prompt(&self, conflict_file: &ConflictFile, conflict: &ConflictRegion) -> String {
-        format!(
-            "I need help resolving a Git merge conflict in the file: {}\n\n\
-            The file contains a conflict between line {} and {}:\n\n\
-            OUR VERSION (current branch):\n```\n{}```\n\n\
-            THEIR VERSION (incoming branch):\n```\n{}```\n\n\
-            Please resolve this conflict and provide only the final resolved content that should replace \
-            the conflict. Preserve the intent of both changes if possible or choose the most appropriate \
-            version if they are in direct conflict. Do not include conflict markers in your response.",
-            conflict_file.path,
-            conflict.start_line,
-            conflict.end_line,
-            conflict.our_content,
-            conflict.their_content
-        )
-    }
-    
-    /// Create a user prompt for resolving an entire file
-    fn create_file_prompt(&self, conflict_file: &ConflictFile) -> String {
-        let mut conflicts_text = String::new();
-        
-        for (i, conflict) in conflict_file.conflicts.iter().enumerate() {
-            conflicts_text.push_str(&format!(
-                "CONFLICT {}:\nBetween lines {} and {}\n\
-                OUR VERSION:\n```\n{}```\n\
-                THEIR VERSION:\n```\n{}```\n\n",
-                i + 1,
-                conflict.start_line,
-                conflict.end_line,
-                conflict.our_content,
-                conflict.their_content
-            ));
+    /// Get the system prompt for Gemini
+    /// This uses the prompt generator with the configured template
+    fn get_system_prompt(&self) -> String {
+        // First check if a system prompt is explicitly provided in the config
+        if let Some(prompt) = &self.config().system_prompt {
+            return prompt.clone();
         }
         
-        format!(
-            "I need help resolving Git merge conflicts in the file: {}\n\n\
-            The file has {} conflict(s):\n\n{}\n\
-            Please provide the entire resolved file content with all conflicts resolved. \
-            Preserve the intent of both changes whenever possible. \
-            Do not include conflict markers in your response.",
-            conflict_file.path,
-            conflict_file.conflicts.len(),
-            conflicts_text
-        )
+        // Otherwise use the prompt generator to create one
+        self.prompt_generator.generate_system_prompt()
     }
     
     // No parse_response method needed as we're handling this in process_response
@@ -320,8 +286,8 @@ impl AIProvider for GeminiProvider {
             ));
         }
         
-        let system_prompt = self.gemini_system_prompt();
-        let user_prompt = self.create_user_prompt(conflict_file, conflict);
+        let system_prompt = self.get_system_prompt();
+        let user_prompt = self.prompt_generator.generate_conflict_prompt(conflict_file, conflict);
         
         info!("Sending conflict to Gemini for resolution with model: {}", self.config.model);
         debug!("System prompt: {}", system_prompt);
@@ -402,8 +368,8 @@ impl AIProvider for GeminiProvider {
             ));
         }
         
-        let system_prompt = self.gemini_system_prompt();
-        let user_prompt = self.create_file_prompt(conflict_file);
+        let system_prompt = self.get_system_prompt();
+        let user_prompt = self.prompt_generator.generate_file_prompt(conflict_file);
         
         info!("Sending entire file to Gemini for resolution with model: {}", self.config.model);
         debug!("System prompt: {}", system_prompt);
@@ -533,7 +499,7 @@ mod tests {
     }
     
     #[test]
-    fn test_create_user_prompt() {
+    fn test_conflict_prompt_generation() {
         // Set the API key for testing
         env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
         
@@ -544,8 +510,8 @@ mod tests {
         let conflict = create_test_conflict("Our content\nwith multiple lines\n", "Their content\nalso with lines\n");
         let conflict_file = create_test_conflict_file(vec![conflict.clone()]);
         
-        // Create user prompt
-        let prompt = provider.create_user_prompt(&conflict_file, &conflict);
+        // Get prompt using the prompt generator
+        let prompt = provider.prompt_generator.generate_conflict_prompt(&conflict_file, &conflict);
         
         // Check prompt content
         assert!(prompt.contains("Git merge conflict"));
@@ -585,7 +551,7 @@ mod tests {
     
     proptest! {
         #[test]
-        fn test_create_user_prompt_prop(our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
+        fn test_conflict_prompt_generation_prop(our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
             // Set the API key for testing
             env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
             
@@ -596,8 +562,8 @@ mod tests {
             let conflict = create_test_conflict(&our_content, &their_content);
             let conflict_file = create_test_conflict_file(vec![conflict.clone()]);
             
-            // Create user prompt
-            let prompt = provider.create_user_prompt(&conflict_file, &conflict);
+            // Generate conflict prompt using prompt generator
+            let prompt = provider.prompt_generator.generate_conflict_prompt(&conflict_file, &conflict);
             
             // Check that the prompt contains the content we provided
             prop_assert!(prompt.contains(&our_content));

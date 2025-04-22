@@ -145,8 +145,8 @@ This document outlines the incremental delivery plan for building the git-merge-
 
 ### Goals
 - Add support for additional AI providers (Anthropic, Google, AWS) ✅
-- Enhance resolution strategies
-- Improve error handling and fallbacks
+- Enhance resolution strategies ✅
+- Improve error handling and fallbacks ✅
 
 ### Tasks
 1. Implement additional AI providers
@@ -161,9 +161,14 @@ This document outlines the incremental delivery plan for building the git-merge-
    - Added property-based testing for file resolution ✅
        - Fixed edge cases in test environment for resolve_file and empty_api_key tests ✅
    - Add AWS Bedrock provider ✅
+   - Added centralized prompt engineering module with multiple templates ✅
 
 2. Enhance AI resolution strategies
-   - Improve prompt engineering
+   - Improve prompt engineering ✅
+    - Created a dedicated prompt_engineering module with structured approach ✅
+    - Implemented multiple prompt templates (Default, Enhanced, Context-Aware) ✅
+    - Added comprehensive tests for all prompt generation variants ✅
+    - Integrated the prompt engineering module with Gemini provider ✅
    - Add context windowing for large files ✅
     - Implement AIResolutionWithWindowingStrategy for automatic windowing based on file size ✅
      - Added comprehensive testing for windowing strategy ✅
