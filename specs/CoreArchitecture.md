@@ -36,7 +36,19 @@ The rizzler is a Git merge driver written in Rust that automatically resolves me
    - Writes the resolved content back to the original conflict file locations
    - Supports customizable system prompts via environment variables
 
-6. **Logging and Telemetry**
+6. **Disk-Based Caching System**
+   - Stores AI responses on disk using configurable paths (default: `~/.cache/rizzler`)
+   - Configurable via both `rizzler.toml` configuration and environment variables
+   - Caches both individual conflict resolutions and whole-file resolutions
+   - Supports configurable cache size limits and TTL (time-to-live)
+   - Implements automatic cleanup of expired entries
+   - Provides optional immediate disk flushing for enhanced reliability
+   - Enables high performance by avoiding redundant AI calls for similar conflicts
+   - Uses MD5 hashing for efficient and collision-resistant cache keys
+   - Persists across program restarts for better efficiency
+   - Thread-safe implementation with proper locking mechanisms
+
+7. **Logging and Telemetry**
    - Records resolution decisions and success/failure metrics
    - Provides debugging information
    - Optional anonymized usage data for improvement (opt-in)
@@ -49,11 +61,15 @@ The rizzler is a Git merge driver written in Rust that automatically resolves me
 4. Conflict regions are parsed from conflicted files
 5. Resolution engine selects and applies appropriate strategy
 6. If using AI resolution:
-   - All merge files are uploaded to the LLM endpoint
-   - Files with conflicts are specifically identified to the model
-   - LLM is prompted to resolve the conflicts in these files
-   - Custom system prompt is applied (if configured)
-   - Conflict data is processed by the AI service
+   - Check disk cache first for identical or similar conflicts
+   - If found in cache, use cached resolution
+   - If not in cache:
+     - All merge files are uploaded to the LLM endpoint
+     - Files with conflicts are specifically identified to the model
+     - LLM is prompted to resolve the conflicts in these files
+     - Custom system prompt is applied (if configured)
+     - Conflict data is processed by the AI service
+     - Resolution is stored in the disk cache for future use
 7. Resolved content is written back to the filesystem at the original conflict file locations
 8. Successful resolution status is returned to Git
 9. Resolution metrics are logged
@@ -63,6 +79,8 @@ The rizzler is a Git merge driver written in Rust that automatically resolves me
 - Resolution should complete within reasonable time (<5s for typical conflicts)
 - Memory usage should be bounded and reasonable
 - AI model selection should consider performance/quality tradeoffs
+- Caching strategy optimized to minimize redundant AI calls
+- Disk operations are optimized to avoid blocking the resolution process
 
 ## Error Handling
 

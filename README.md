@@ -224,6 +224,33 @@ Wanna give the AI some specific instructions or context? You can override the de
 
 This lets you fine-tune how the AI approaches the merge resolution.
 
+## 💾 Cache = Less $$$, More Speed 💅
+
+Aight, listen up! `rizzler` is smart with your API keys and your time. It uses a **disk cache** to remember the answers it gets from the AI. Think of it like your phone remembering Wi-Fi passwords, but for merge conflicts.
+
+**Why You Should Care:**
+
+*   **Saves $$:** If `rizzler` sees the *exact same conflict* it already solved, it grabs the answer from the cache instead of pinging the AI again. Cha-ching! 💸 Saves API costs.
+*   **Speeds Things Up:** Cache hits are *way* faster than waiting for the AI. Gets you back to coding quicker. ⚡
+*   **It Remembers!:** Since it's on disk, the cache sticks around even after you close your terminal. If you run `rizzler` later and hit the same conflict, it'll remember the fix. Persistent W.
+
+**The Lowdown:**
+
+*   **Where it Lives:** By default, cache files get stashed in a folder called `rizzler-cache` in your system's temp directory (like `/tmp/rizzler-cache`). You can change this spot by setting the `RIZZLER_CACHE_DIR` environment variable to your preferred path.
+*   **How it Works:** `rizzler` hashes the conflict details (or file path + content) to make a key, then saves the AI's answer as a `.json` file using that key.
+*   **Expiration:** Cache files have a "best before" date (TTL). After the TTL (default: **24 hours**), they get automatically deleted to keep things fresh. Old cache = irrelevant cache.
+*   **Max Capacity:** It won't hoard files forever. There's a limit (default: **1000 files** per type). If it hits the cap, the oldest files get yeeted.
+
+**Tune the Cache Vibe (Env Vars):**
+
+*   `RIZZLER_USE_CACHE`: Turn it on (`true`, default) or off (`false`).
+*   `RIZZLER_CACHE_DIR`: Pick where the cache files live.
+*   `RIZZLER_CACHE_TTL_HOURS`: Set the expiry time in hours (default: `24`).
+*   `RIZZLER_CACHE_MAX_ENTRIES`: Cap the number of saved files (default: `1000`).
+*   `RIZZLER_CACHE_AUTO_CLEANUP`: Let `rizzler` automatically clean up old files (`true`, default) or not (`false`).
+
+Basically, the disk cache helps `rizzler` work smarter, not harder. ✨
+
 ## 🎮 How to Play
 
 **Automatic Mode (The Chill Way):**

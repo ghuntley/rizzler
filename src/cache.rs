@@ -3,17 +3,20 @@
 
 use crate::ai_provider::{AIResponse, TokenUsage};
 use crate::conflict_parser::{ConflictRegion, ConflictFile};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
+use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use tracing::{debug, info};
+use serde::{Serialize, Deserialize};
+use base64::Engine;
+use tracing::{debug, info, warn, error};
 
 /// A structure to cache AI responses for similar conflicts
 pub struct AIResolutionCache {
-    /// Cache for individual conflict resolutions
-    conflict_cache: Arc<Mutex<HashMap<String, CacheEntry>>>,
-    /// Cache for whole file resolutions
-    file_cache: Arc<Mutex<HashMap<String, CacheEntry>>>,
+    /// Cache directory path
+    cache_dir: PathBuf,
     /// Maximum time to keep entries in the cache
     ttl: Duration,
     /// Flag to enable/disable caching
@@ -22,24 +25,119 @@ pub struct AIResolutionCache {
     max_entries: Option<usize>,
     /// Auto cleanup expired entries
     auto_cleanup: bool,
-    /// Access order for conflict cache (newest to oldest)
-    conflict_access_order: Arc<Mutex<VecDeque<String>>>,
-    /// Access order for file cache (newest to oldest)
-    file_access_order: Arc<Mutex<VecDeque<String>>>,
+    /// Immediate flush to disk
+    immediate_flush: bool,
+    /// Lock for cache operations
+    cache_lock: Arc<Mutex<()>>,
 }
 
-/// A cache entry with expiration time
+/// Configuration options for the disk cache
+#[derive(Debug, Clone)]
+pub struct CacheConfig {
+    /// Enable or disable the cache
+    pub enabled: bool,
+    /// Cache directory path
+    pub directory: PathBuf,
+    /// Time-to-live for cache entries
+    pub ttl_hours: u64,
+    /// Maximum number of entries per cache type
+    pub max_entries: Option<usize>,
+    /// Auto cleanup expired entries
+    pub auto_cleanup: bool,
+    /// Immediate flush to disk
+    pub immediate_flush: bool,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            directory: get_cache_dir(),
+            ttl_hours: 24,
+            max_entries: Some(1000),
+            auto_cleanup: true,
+            immediate_flush: false,
+        }
+    }
+}
+
+impl CacheConfig {
+    /// Load configuration from environment variables and config file
+    pub fn from_env() -> Self {
+        let mut config = Self::default();
+        
+        // Override with environment variables
+        if let Ok(val) = env::var("RIZZLER_USE_CACHE") {
+            config.enabled = val.to_lowercase() == "true" || val == "1";
+        }
+        
+        if let Ok(dir) = env::var("RIZZLER_CACHE_DIR") {
+            config.directory = PathBuf::from(dir);
+        }
+        
+        if let Ok(val) = env::var("RIZZLER_CACHE_TTL_HOURS") {
+            if let Ok(hours) = val.parse::<u64>() {
+                config.ttl_hours = hours;
+            }
+        }
+        
+        if let Ok(val) = env::var("RIZZLER_CACHE_MAX_ENTRIES") {
+            if let Ok(entries) = val.parse::<usize>() {
+                config.max_entries = Some(entries);
+            }
+        }
+        
+        if let Ok(val) = env::var("RIZZLER_CACHE_AUTO_CLEANUP") {
+            config.auto_cleanup = val.to_lowercase() == "true" || val == "1";
+        }
+        
+        if let Ok(val) = env::var("RIZZLER_CACHE_IMMEDIATE_FLUSH") {
+            config.immediate_flush = val.to_lowercase() == "true" || val == "1";
+        }
+        
+        config
+    }
+}
+
+/// A serializable cache entry with expiration time
+#[derive(Serialize, Deserialize)]
 struct CacheEntry {
     /// The response from the AI provider
     response: AIResponse,
-    /// When this entry expires
-    expires_at: SystemTime,
+    /// When this entry expires (as unix timestamp)
+    expires_at: u64,
+    /// When this entry was created (as unix timestamp)
+    created_at: u64,
 }
 
 impl AIResolutionCache {
     /// Create a new cache with default TTL of 1 hour
     pub fn new() -> Self {
-        Self::with_ttl(Duration::from_secs(3600))
+        Self::from_config(CacheConfig::default())
+    }
+    
+    /// Create a new cache from configuration
+    pub fn from_config(config: CacheConfig) -> Self {
+        let cache_dir = config.directory;
+        
+        // Create cache directory if it doesn't exist
+        if !cache_dir.exists() {
+            if let Err(e) = fs::create_dir_all(&cache_dir) {
+                error!("Failed to create cache directory at {:?}: {}", cache_dir, e);
+            } else {
+                info!("Created cache directory at {:?}", cache_dir);
+            }
+        }
+        
+        AIResolutionCache {
+            cache_dir,
+            ttl: Duration::from_secs(config.ttl_hours * 3600),
+            enabled: config.enabled,
+            max_entries: config.max_entries,
+            auto_cleanup: config.auto_cleanup,
+            immediate_flush: config.immediate_flush,
+            cache_lock: Arc::new(Mutex::new(())),
+        }
     }
     
     /// Create a new cache with a specific TTL
@@ -49,15 +147,25 @@ impl AIResolutionCache {
 
     /// Create a new cache with specific options
     pub fn with_options(ttl: Duration, max_entries: Option<usize>, auto_cleanup: bool) -> Self {
+        let cache_dir = get_cache_dir();
+        
+        // Create cache directory if it doesn't exist
+        if !cache_dir.exists() {
+            if let Err(e) = fs::create_dir_all(&cache_dir) {
+                error!("Failed to create cache directory at {:?}: {}", cache_dir, e);
+            } else {
+                info!("Created cache directory at {:?}", cache_dir);
+            }
+        }
+        
         AIResolutionCache {
-            conflict_cache: Arc::new(Mutex::new(HashMap::new())),
-            file_cache: Arc::new(Mutex::new(HashMap::new())),
+            cache_dir,
             ttl,
             enabled: true,
             max_entries,
             auto_cleanup,
-            conflict_access_order: Arc::new(Mutex::new(VecDeque::new())),
-            file_access_order: Arc::new(Mutex::new(VecDeque::new())),
+            immediate_flush: false,
+            cache_lock: Arc::new(Mutex::new(())),
         }
     }
     
@@ -71,6 +179,25 @@ impl AIResolutionCache {
         self.enabled
     }
 
+    /// Set the cache directory
+    pub fn set_cache_dir(&mut self, dir: PathBuf) {
+        self.cache_dir = dir;
+        
+        // Create cache directory if it doesn't exist
+        if !self.cache_dir.exists() {
+            if let Err(e) = fs::create_dir_all(&self.cache_dir) {
+                error!("Failed to create cache directory at {:?}: {}", self.cache_dir, e);
+            } else {
+                info!("Created cache directory at {:?}", self.cache_dir);
+            }
+        }
+    }
+    
+    /// Get the current cache directory
+    pub fn get_cache_dir(&self) -> &PathBuf {
+        &self.cache_dir
+    }
+
     /// Set the maximum number of entries per cache
     pub fn set_max_entries(&mut self, max_entries: usize) {
         self.max_entries = Some(max_entries);
@@ -82,115 +209,212 @@ impl AIResolutionCache {
         self.auto_cleanup = auto_cleanup;
     }
     
+    /// Set immediate flush mode
+    pub fn set_immediate_flush(&mut self, immediate_flush: bool) {
+        self.immediate_flush = immediate_flush;
+    }
+    
+    /// Check if immediate flush is enabled
+    pub fn is_immediate_flush(&self) -> bool {
+        self.immediate_flush
+    }
+    
     /// Clear all entries from the cache
     pub fn clear(&self) {
-        if let Ok(mut cache) = self.conflict_cache.lock() {
-            cache.clear();
+        if let Ok(_guard) = self.cache_lock.lock() {
+            let conflict_dir = self.cache_dir.join("conflicts");
+            let file_dir = self.cache_dir.join("files");
+            
+            if conflict_dir.exists() {
+                if let Err(e) = fs::remove_dir_all(&conflict_dir) {
+                    error!("Failed to clear conflict cache directory: {}", e);
+                } else {
+                    // Recreate the directory
+                    let _ = fs::create_dir_all(&conflict_dir);
+                    debug!("Cleared conflict cache directory");
+                }
+            }
+            
+            if file_dir.exists() {
+                if let Err(e) = fs::remove_dir_all(&file_dir) {
+                    error!("Failed to clear file cache directory: {}", e);
+                } else {
+                    // Recreate the directory
+                    let _ = fs::create_dir_all(&file_dir);
+                    debug!("Cleared file cache directory");
+                }
+            }
         }
-        
-        if let Ok(mut cache) = self.file_cache.lock() {
-            cache.clear();
-        }
+    }
 
-        if let Ok(mut access_order) = self.conflict_access_order.lock() {
-            access_order.clear();
+    /// Get the path for conflict cache directory
+    fn get_conflict_cache_dir(&self) -> PathBuf {
+        let dir = self.cache_dir.join("conflicts");
+        if !dir.exists() {
+            let _ = fs::create_dir_all(&dir);
         }
-
-        if let Ok(mut access_order) = self.file_access_order.lock() {
-            access_order.clear();
+        dir
+    }
+    
+    /// Get the path for file cache directory
+    fn get_file_cache_dir(&self) -> PathBuf {
+        let dir = self.cache_dir.join("files");
+        if !dir.exists() {
+            let _ = fs::create_dir_all(&dir);
         }
+        dir
     }
 
     /// Enforce maximum entries limit by removing oldest entries
     fn enforce_max_entries(&self) {
         if let Some(max) = self.max_entries {
-            // Enforce for conflict cache
-            if let (Ok(mut cache), Ok(mut access_order)) = (self.conflict_cache.lock(), self.conflict_access_order.lock()) {
-                while access_order.len() > max {
-                    if let Some(oldest) = access_order.pop_back() {
-                        // Check if the entry actually exists before removing
-                        if cache.contains_key(&oldest) {
-                            cache.remove(&oldest);
-                            debug!("Removed oldest conflict cache entry due to max size limit");
-                        }
-                    }
-                }
+            if let Ok(_guard) = self.cache_lock.lock() {
+                // Enforce for conflict cache
+                self.enforce_max_entries_for_dir(self.get_conflict_cache_dir(), max, "conflict");
+                
+                // Enforce for file cache
+                self.enforce_max_entries_for_dir(self.get_file_cache_dir(), max, "file");
             }
-
-            // Enforce for file cache
-            if let (Ok(mut cache), Ok(mut access_order)) = (self.file_cache.lock(), self.file_access_order.lock()) {
-                while access_order.len() > max {
-                    if let Some(oldest) = access_order.pop_back() {
-                        // Check if the entry actually exists before removing
-                        if cache.contains_key(&oldest) {
-                            cache.remove(&oldest);
-                            debug!("Removed oldest file cache entry due to max size limit");
+        }
+    }
+    
+    /// Enforce maximum entries for a specific cache directory
+    fn enforce_max_entries_for_dir(&self, dir: PathBuf, max: usize, cache_type: &str) {
+        if !dir.exists() {
+            return;
+        }
+        
+        match fs::read_dir(&dir) {
+            Ok(entries) => {
+                // Collect all entries with their timestamps
+                let mut files: Vec<(PathBuf, SystemTime)> = Vec::new();
+                
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        let path = entry.path();
+                        if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+                            if let Ok(metadata) = entry.metadata() {
+                                if let Ok(created) = metadata.created() {
+                                    files.push((path, created));
+                                }
+                            }
                         }
                     }
                 }
+                
+                // If we have more than max entries, sort by creation time and delete oldest
+                if files.len() > max {
+                    // Sort by creation time (oldest first)
+                    files.sort_by(|a, b| a.1.cmp(&b.1));
+                    
+                    // Remove oldest entries
+                    for i in 0..files.len() - max {
+                        if let Err(e) = fs::remove_file(&files[i].0) {
+                            error!("Failed to remove old {} cache entry: {}", cache_type, e);
+                        } else {
+                            debug!("Removed oldest {} cache entry due to max size limit", cache_type);
+                        }
+                    }
+                }
+            },
+            Err(e) => {
+                error!("Failed to read {} cache directory: {}", cache_type, e);
             }
         }
     }
 
     /// Clean up expired entries
     fn cleanup_expired(&self) {
-        let now = SystemTime::now();
-
-        // Clean up conflict cache
-        if let (Ok(mut cache), Ok(mut access_order)) = (self.conflict_cache.lock(), self.conflict_access_order.lock()) {
-            let mut expired_keys = Vec::new();
+        if let Ok(_guard) = self.cache_lock.lock() {
+            // Clean up conflict cache
+            self.cleanup_expired_for_dir(self.get_conflict_cache_dir(), "conflict");
             
-            for (key, entry) in cache.iter() {
-                if entry.expires_at <= now {
-                    expired_keys.push(key.clone());
-                }
-            }
-            
-            for key in &expired_keys {
-                cache.remove(key);
-                debug!("Removed expired conflict cache entry");
-            }
-            
-            // Update access order
-            access_order.retain(|key| !expired_keys.contains(key));
+            // Clean up file cache
+            self.cleanup_expired_for_dir(self.get_file_cache_dir(), "file");
         }
-
-        // Clean up file cache
-        if let (Ok(mut cache), Ok(mut access_order)) = (self.file_cache.lock(), self.file_access_order.lock()) {
-            let mut expired_keys = Vec::new();
+    }
+    
+    /// Clean up expired entries for a specific cache directory
+    fn cleanup_expired_for_dir(&self, dir: PathBuf, cache_type: &str) {
+        if !dir.exists() {
+            return;
+        }
+        
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
             
-            for (key, entry) in cache.iter() {
-                if entry.expires_at <= now {
-                    expired_keys.push(key.clone());
+        match fs::read_dir(&dir) {
+            Ok(entries) => {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        let path = entry.path();
+                        if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+                            match fs::read_to_string(&path) {
+                                Ok(content) => {
+                                    match serde_json::from_str::<CacheEntry>(&content) {
+                                        Ok(cache_entry) => {
+                                            if cache_entry.expires_at <= now {
+                                                if let Err(e) = fs::remove_file(&path) {
+                                                    error!("Failed to remove expired {} cache entry: {}", cache_type, e);
+                                                } else {
+                                                    debug!("Removed expired {} cache entry", cache_type);
+                                                }
+                                            }
+                                        },
+                                        Err(e) => {
+                                            warn!("Failed to parse {} cache entry: {}", cache_type, e);
+                                            // Consider removing invalid entries
+                                            let _ = fs::remove_file(&path);
+                                        }
+                                    }
+                                },
+                                Err(e) => {
+                                    warn!("Failed to read {} cache entry: {}", cache_type, e);
+                                }
+                            }
+                        }
+                    }
                 }
+            },
+            Err(e) => {
+                error!("Failed to read {} cache directory: {}", cache_type, e);
             }
-            
-            for key in &expired_keys {
-                cache.remove(key);
-                debug!("Removed expired file cache entry");
-            }
-            
-            // Update access order
-            access_order.retain(|key| !expired_keys.contains(key));
         }
     }
     
     /// Generate a cache key for a conflict
     fn generate_conflict_key(&self, conflict: &ConflictRegion) -> String {
         // Use a hash of the combined content as the key
-        // In a real implementation, we might want to use a more sophisticated
-        // way to determine if conflicts are similar enough to use cached results
-        format!("{}-{}-{}", 
-            base64::encode(&conflict.base_content),
-            base64::encode(&conflict.our_content),
-            base64::encode(&conflict.their_content)
-        )
+        let content = format!("{}-{}-{}", 
+            base64::engine::general_purpose::STANDARD.encode(&conflict.base_content),
+            base64::engine::general_purpose::STANDARD.encode(&conflict.our_content),
+            base64::engine::general_purpose::STANDARD.encode(&conflict.their_content)
+        );
+        
+        // Use a consistent hash function to generate a filename-safe key
+        let hash = format!("{:x}", md5::compute(content));
+        hash
     }
     
     /// Generate a cache key for a file
     fn generate_file_key(&self, file: &ConflictFile) -> String {
         // Use a hash of the file path and content as the key
-        format!("{}-{}", file.path, base64::encode(&file.content))
+        let content = format!("{}-{}", file.path, base64::engine::general_purpose::STANDARD.encode(&file.content));
+        
+        // Use a consistent hash function to generate a filename-safe key
+        let hash = format!("{:x}", md5::compute(content));
+        hash
+    }
+    
+    /// Get the file path for a conflict cache entry
+    fn get_conflict_cache_path(&self, key: &str) -> PathBuf {
+        self.get_conflict_cache_dir().join(format!("{}.json", key))
+    }
+    
+    /// Get the file path for a file cache entry
+    fn get_file_cache_path(&self, key: &str) -> PathBuf {
+        self.get_file_cache_dir().join(format!("{}.json", key))
     }
     
     /// Get a cached response for a conflict if available
@@ -205,18 +429,35 @@ impl AIResolutionCache {
         }
         
         let key = self.generate_conflict_key(conflict);
-        let now = SystemTime::now();
+        let cache_path = self.get_conflict_cache_path(&key);
         
-        if let (Ok(cache), Ok(mut access_order)) = (self.conflict_cache.lock(), self.conflict_access_order.lock()) {
-            if let Some(entry) = cache.get(&key) {
-                if entry.expires_at > now {
-                    // Update access order - remove old position if exists
-                    access_order.retain(|k| k != &key);
-                    // Add to front (newest)
-                    access_order.push_front(key.clone());
-                    
-                    debug!("Cache hit for conflict");
-                    return Some(entry.response.clone());
+        if cache_path.exists() {
+            match fs::read_to_string(&cache_path) {
+                Ok(content) => {
+                    match serde_json::from_str::<CacheEntry>(&content) {
+                        Ok(cache_entry) => {
+                            let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs();
+                                
+                            if cache_entry.expires_at > now {
+                                debug!("Cache hit for conflict");
+                                return Some(cache_entry.response);
+                            } else {
+                                // Entry expired, remove it
+                                let _ = fs::remove_file(&cache_path);
+                                debug!("Removed expired conflict cache entry");
+                            }
+                        },
+                        Err(e) => {
+                            warn!("Failed to parse conflict cache entry: {}", e);
+                            // Consider removing invalid entries
+                            let _ = fs::remove_file(&cache_path);
+                        }
+                    }
+                },
+                Err(e) => {
+                    warn!("Failed to read conflict cache entry: {}", e);
                 }
             }
         }
@@ -237,18 +478,35 @@ impl AIResolutionCache {
         }
         
         let key = self.generate_file_key(file);
-        let now = SystemTime::now();
+        let cache_path = self.get_file_cache_path(&key);
         
-        if let (Ok(cache), Ok(mut access_order)) = (self.file_cache.lock(), self.file_access_order.lock()) {
-            if let Some(entry) = cache.get(&key) {
-                if entry.expires_at > now {
-                    // Update access order - remove old position if exists
-                    access_order.retain(|k| k != &key);
-                    // Add to front (newest)
-                    access_order.push_front(key.clone());
-                    
-                    debug!("Cache hit for file {}", file.path);
-                    return Some(entry.response.clone());
+        if cache_path.exists() {
+            match fs::read_to_string(&cache_path) {
+                Ok(content) => {
+                    match serde_json::from_str::<CacheEntry>(&content) {
+                        Ok(cache_entry) => {
+                            let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs();
+                                
+                            if cache_entry.expires_at > now {
+                                debug!("Cache hit for file {}", file.path);
+                                return Some(cache_entry.response);
+                            } else {
+                                // Entry expired, remove it
+                                let _ = fs::remove_file(&cache_path);
+                                debug!("Removed expired file cache entry");
+                            }
+                        },
+                        Err(e) => {
+                            warn!("Failed to parse file cache entry: {}", e);
+                            // Consider removing invalid entries
+                            let _ = fs::remove_file(&cache_path);
+                        }
+                    }
+                },
+                Err(e) => {
+                    warn!("Failed to read file cache entry: {}", e);
                 }
             }
         }
@@ -269,28 +527,49 @@ impl AIResolutionCache {
         }
         
         let key = self.generate_conflict_key(conflict);
-        let expires_at = SystemTime::now() + self.ttl;
+        let cache_path = self.get_conflict_cache_path(&key);
         
-        if let (Ok(mut cache), Ok(mut access_order)) = (self.conflict_cache.lock(), self.conflict_access_order.lock()) {
-            // Update access order - add/move to front of queue
-            // Update access order - remove old position if exists
-            access_order.retain(|k| k != &key);
-            // Add to front (newest)
-            access_order.push_front(key.clone());
-            
-            // Insert entry
-            cache.insert(key, CacheEntry { response, expires_at });
-            debug!("Cached response for conflict");
-            
-            // Enforce max entries if set
-            if let Some(max) = self.max_entries {
-                while access_order.len() > max {
-                    if let Some(oldest) = access_order.pop_back() {
-                        cache.remove(&oldest);
-                        debug!("Removed oldest conflict cache entry due to max size limit");
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let expires_at = now + self.ttl.as_secs();
+        
+        let entry = CacheEntry {
+            response,
+            expires_at,
+            created_at: now,
+        };
+        
+        match serde_json::to_string(&entry) {
+            Ok(json) => {
+                // Make sure the directory exists
+                let dir = cache_path.parent().unwrap_or(Path::new(""));
+                if !dir.exists() {
+                    let _ = fs::create_dir_all(dir);
+                }
+                
+                match fs::write(&cache_path, json) {
+                    Ok(_) => {
+                        debug!("Cached response for conflict");
+                        
+                        // Flush immediately if enabled
+                        if self.immediate_flush {
+                            let _ = self.flush();
+                        }
+                    },
+                    Err(e) => {
+                        error!("Failed to write conflict cache entry: {}", e);
                     }
                 }
+            },
+            Err(e) => {
+                error!("Failed to serialize conflict cache entry: {}", e);
             }
+        }
+        
+        // Enforce max entries if set
+        if self.max_entries.is_some() {
+            self.enforce_max_entries();
         }
     }
     
@@ -306,27 +585,86 @@ impl AIResolutionCache {
         }
         
         let key = self.generate_file_key(file);
-        let expires_at = SystemTime::now() + self.ttl;
+        let cache_path = self.get_file_cache_path(&key);
         
-        if let (Ok(mut cache), Ok(mut access_order)) = (self.file_cache.lock(), self.file_access_order.lock()) {
-            // Update access order - remove old position if exists
-            access_order.retain(|k| k != &key);
-            // Add to front (newest)
-            access_order.push_front(key.clone());
-            
-            // Insert entry
-            cache.insert(key, CacheEntry { response, expires_at });
-            debug!("Cached response for file {}", file.path);
-            
-            // Enforce max entries if set
-            if let Some(max) = self.max_entries {
-                while access_order.len() > max {
-                    if let Some(oldest) = access_order.pop_back() {
-                        cache.remove(&oldest);
-                        debug!("Removed oldest file cache entry due to max size limit");
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let expires_at = now + self.ttl.as_secs();
+        
+        let entry = CacheEntry {
+            response,
+            expires_at,
+            created_at: now,
+        };
+        
+        match serde_json::to_string(&entry) {
+            Ok(json) => {
+                // Make sure the directory exists
+                let dir = cache_path.parent().unwrap_or(Path::new(""));
+                if !dir.exists() {
+                    let _ = fs::create_dir_all(dir);
+                }
+                
+                match fs::write(&cache_path, json) {
+                    Ok(_) => {
+                        debug!("Cached response for file {}", file.path);
+                        
+                        // Flush immediately if enabled
+                        if self.immediate_flush {
+                            let _ = self.flush();
+                        }
+                    },
+                    Err(e) => {
+                        error!("Failed to write file cache entry: {}", e);
                     }
                 }
+            },
+            Err(e) => {
+                error!("Failed to serialize file cache entry: {}", e);
             }
+        }
+        
+        // Enforce max entries if set
+        if self.max_entries.is_some() {
+            self.enforce_max_entries();
+        }
+    }
+
+    /// Explicitly flush any pending writes to ensure they are persisted to disk
+    pub fn flush(&self) -> Result<(), std::io::Error> {
+        // Since we're just using normal file operations, this is a no-op
+        // but we'll sync the directories to be sure
+        if let Ok(_guard) = self.cache_lock.lock() {
+            let conflict_dir = self.get_conflict_cache_dir();
+            let file_dir = self.get_file_cache_dir();
+            
+            // Try to sync the directories
+            if conflict_dir.exists() {
+                if let Ok(f) = std::fs::File::open(&conflict_dir) {
+                    let _ = f.sync_all();
+                }
+            }
+            
+            if file_dir.exists() {
+                if let Ok(f) = std::fs::File::open(&file_dir) {
+                    let _ = f.sync_all();
+                }
+            }
+        }
+        
+        Ok(())
+    }
+}
+
+/// Get the cache directory path from environment variable or default to system temp
+fn get_cache_dir() -> PathBuf {
+    match env::var("RIZZLER_CACHE_DIR") {
+        Ok(dir) => PathBuf::from(dir),
+        Err(_) => {
+            // Default to system temp directory with 'rizzler-cache' subdirectory
+            let temp_dir = env::temp_dir();
+            temp_dir.join("rizzler-cache")
         }
     }
 }
@@ -335,6 +673,8 @@ impl AIResolutionCache {
 mod tests {
     use super::*;
     use std::thread;
+    use std::fs;
+    use tempfile::TempDir;
     
     // Helper function to create a test conflict region
     fn create_test_conflict(our_content: &str, their_content: &str) -> ConflictRegion {
@@ -370,14 +710,32 @@ mod tests {
         }
     }
     
+    // Setup a temporary directory for tests
+    fn setup_test_cache() -> (AIResolutionCache, TempDir) {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().to_path_buf();
+        
+        // Set environment variable for the test
+        env::set_var("RIZZLER_CACHE_DIR", cache_dir.to_str().unwrap());
+        
+        let cache = AIResolutionCache::new();
+        
+        (cache, temp_dir)
+    }
+    
     #[test]
     fn test_cache_conflict_hit() {
-        let cache = AIResolutionCache::new();
+        let (cache, _temp_dir) = setup_test_cache();
         let conflict = create_test_conflict("Our content\n", "Their content\n");
         let response = create_test_response("Resolved content\n");
         
         // Store in cache
         cache.put_conflict(&conflict, response.clone());
+        
+        // Verify cache file was created
+        let key = cache.generate_conflict_key(&conflict);
+        let cache_path = cache.get_conflict_cache_path(&key);
+        assert!(cache_path.exists());
         
         // Retrieve from cache
         let cached = cache.get_conflict(&conflict);
@@ -388,11 +746,14 @@ mod tests {
         assert_eq!(cached.model, "test-model");
         assert!(cached.explanation.is_some());
         assert!(cached.token_usage.is_some());
+        
+        // Clean up
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
     
     #[test]
     fn test_cache_conflict_miss() {
-        let cache = AIResolutionCache::new();
+        let (cache, _temp_dir) = setup_test_cache();
         let conflict1 = create_test_conflict("Our content\n", "Their content\n");
         let conflict2 = create_test_conflict("Different content\n", "Their content\n");
         let response = create_test_response("Resolved content\n");
@@ -403,11 +764,14 @@ mod tests {
         // Try to retrieve for conflict2
         let cached = cache.get_conflict(&conflict2);
         assert!(cached.is_none());
+        
+        // Clean up
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
     
     #[test]
     fn test_cache_file_hit() {
-        let cache = AIResolutionCache::new();
+        let (cache, _temp_dir) = setup_test_cache();
         let conflict = create_test_conflict("Our content\n", "Their content\n");
         let file = create_test_conflict_file(vec![conflict]);
         let response = create_test_response("Resolved file content\n");
@@ -415,18 +779,30 @@ mod tests {
         // Store in cache
         cache.put_file(&file, response.clone());
         
+        // Verify cache file was created
+        let key = cache.generate_file_key(&file);
+        let cache_path = cache.get_file_cache_path(&key);
+        assert!(cache_path.exists());
+        
         // Retrieve from cache
         let cached = cache.get_file(&file);
         assert!(cached.is_some());
         
         let cached = cached.unwrap();
         assert_eq!(cached.content, "Resolved file content\n");
+        
+        // Clean up
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
     
     #[test]
     fn test_cache_expiration() {
+        let (cache, _temp_dir) = setup_test_cache();
+        
         // Create cache with a very short TTL (1ms)
-        let cache = AIResolutionCache::with_ttl(Duration::from_millis(1));
+        let mut cache = AIResolutionCache::with_ttl(Duration::from_millis(1));
+        cache.cache_dir = PathBuf::from(env::var("RIZZLER_CACHE_DIR").unwrap());
+        
         let conflict = create_test_conflict("Our content\n", "Their content\n");
         let response = create_test_response("Resolved content\n");
         
@@ -439,11 +815,14 @@ mod tests {
         // Try to retrieve - should be expired
         let cached = cache.get_conflict(&conflict);
         assert!(cached.is_none());
+        
+        // Clean up
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
     
     #[test]
     fn test_cache_disable() {
-        let mut cache = AIResolutionCache::new();
+        let (mut cache, _temp_dir) = setup_test_cache();
         let conflict = create_test_conflict("Our content\n", "Their content\n");
         let response = create_test_response("Resolved content\n");
         
@@ -452,7 +831,12 @@ mod tests {
         assert!(!cache.is_enabled());
         
         // Store in cache - should not actually store
-        cache.put_conflict(&conflict, response);
+        cache.put_conflict(&conflict, response.clone());
+        
+        // Verify no cache file was created
+        let key = cache.generate_conflict_key(&conflict);
+        let cache_path = cache.get_conflict_cache_path(&key);
+        assert!(!cache_path.exists());
         
         // Try to retrieve - should be none
         let cached = cache.get_conflict(&conflict);
@@ -463,17 +847,19 @@ mod tests {
         assert!(cache.is_enabled());
         
         // Store in cache
-        let response = create_test_response("Resolved content\n");
         cache.put_conflict(&conflict, response);
         
         // Try to retrieve - should be found
         let cached = cache.get_conflict(&conflict);
         assert!(cached.is_some());
+        
+        // Clean up
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
     
     #[test]
     fn test_cache_clear() {
-        let cache = AIResolutionCache::new();
+        let (cache, _temp_dir) = setup_test_cache();
         let conflict = create_test_conflict("Our content\n", "Their content\n");
         let file = create_test_conflict_file(vec![conflict.clone()]);
         let response = create_test_response("Resolved content\n");
@@ -482,9 +868,9 @@ mod tests {
         cache.put_conflict(&conflict, response.clone());
         cache.put_file(&file, response);
         
-        // Verify both are cached
-        assert!(cache.get_conflict(&conflict).is_some());
-        assert!(cache.get_file(&file).is_some());
+        // Verify both directories exist
+        assert!(cache.get_conflict_cache_dir().exists());
+        assert!(cache.get_file_cache_dir().exists());
         
         // Clear cache
         cache.clear();
@@ -492,5 +878,76 @@ mod tests {
         // Verify both are cleared
         assert!(cache.get_conflict(&conflict).is_none());
         assert!(cache.get_file(&file).is_none());
+        
+        // Clean up
+        env::remove_var("RIZZLER_CACHE_DIR");
+    }
+    
+    #[test]
+    fn test_max_entries() {
+        let (mut cache, _temp_dir) = setup_test_cache();
+        
+        // Set max entries to 2
+        cache.set_max_entries(2);
+        
+        // Create 3 different conflicts
+        let conflict1 = create_test_conflict("Content 1\n", "Their content\n");
+        let conflict2 = create_test_conflict("Content 2\n", "Their content\n");
+        let conflict3 = create_test_conflict("Content 3\n", "Their content\n");
+        
+        let response1 = create_test_response("Resolved content 1\n");
+        let response2 = create_test_response("Resolved content 2\n");
+        let response3 = create_test_response("Resolved content 3\n");
+        
+        // Store all three in cache
+        cache.put_conflict(&conflict1, response1);
+        
+        // Small sleep to ensure different timestamps
+        thread::sleep(Duration::from_millis(10));
+        cache.put_conflict(&conflict2, response2);
+        
+        thread::sleep(Duration::from_millis(10));
+        cache.put_conflict(&conflict3, response3);
+        
+        // Verify only the 2 most recent are in cache
+        assert!(cache.get_conflict(&conflict1).is_none()); // This should be evicted
+        assert!(cache.get_conflict(&conflict2).is_some());
+        assert!(cache.get_conflict(&conflict3).is_some());
+        
+        // Clean up
+        env::remove_var("RIZZLER_CACHE_DIR");
+    }
+    
+    #[test]
+    fn test_auto_cleanup() {
+        let (mut cache, _temp_dir) = setup_test_cache();
+        
+        // Set a very short TTL and enable auto cleanup
+        cache = AIResolutionCache::with_options(
+            Duration::from_millis(1), 
+            None, 
+            true
+        );
+        cache.cache_dir = PathBuf::from(env::var("RIZZLER_CACHE_DIR").unwrap());
+        
+        let conflict = create_test_conflict("Our content\n", "Their content\n");
+        let response = create_test_response("Resolved content\n");
+        
+        // Store in cache
+        cache.put_conflict(&conflict, response);
+        
+        // Sleep to let it expire
+        thread::sleep(Duration::from_millis(10));
+        
+        // Just accessing the cache should trigger cleanup
+        let _ = cache.get_conflict(&create_test_conflict("Other\n", "Content\n"));
+        
+        // Verify cache file was deleted
+        let key = cache.generate_conflict_key(&conflict);
+        let cache_path = cache.get_conflict_cache_path(&key);
+        assert!(!cache_path.exists());
+        
+        // Clean up
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
 }

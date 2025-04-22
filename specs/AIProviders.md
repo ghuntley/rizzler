@@ -61,3 +61,54 @@ The rizzler will support multiple AI providers to give users flexibility in choo
   - Resolve conflicts sensibly based on the context of changes
   - Preserve semantics and functionality
   - Explain reasoning for conflict resolutions
+
+## Caching Configuration
+
+The rizzler implements a disk-based caching system to improve performance and reduce API costs by avoiding redundant AI calls.
+
+### Configuration File Options
+
+In the `rizzler.toml` configuration file, you can specify caching options under the `[cache]` section:
+
+```toml
+[cache]
+# Enable or disable the cache system
+enabled = true
+
+# Directory to store cache files
+directory = "~/.cache/rizzler" 
+
+# Cache time-to-live in hours
+ttl_hours = 24
+
+# Maximum number of entries per cache type (conflicts and files)
+max_entries = 1000
+
+# Enable automatic cleanup of expired entries during cache operations
+auto_cleanup = true
+
+# Flush cache to disk immediately after writing
+immediate_flush = false
+```
+
+### Environment Variables
+
+These environment variables override the settings in the configuration file:
+
+- `RIZZLER_USE_CACHE`: Enable/disable caching (true/false, default: true)
+- `RIZZLER_CACHE_DIR`: Directory to store cache files (default: system temp dir)
+- `RIZZLER_CACHE_TTL_HOURS`: Time-to-live for cache entries in hours (default: 24)
+- `RIZZLER_CACHE_MAX_ENTRIES`: Maximum number of entries per cache type
+- `RIZZLER_CACHE_AUTO_CLEANUP`: Enable/disable automatic cleanup (true/false, default: true)
+- `RIZZLER_CACHE_IMMEDIATE_FLUSH`: Enable/disable immediate disk flush (true/false, default: false)
+
+### Cache Features
+
+- Persistent disk-based storage of AI responses
+- Automatic cleanup of expired entries
+- Configurable maximum number of entries
+- Caching of both individual conflict resolutions and whole-file resolutions
+- Hash-based cache keys for efficient lookup
+- Error-resistant design with fallback to AI on cache failures
+- Optional immediate disk flushing for enhanced reliability
+- Support for cache persistence across program executions

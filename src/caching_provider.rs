@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::ai_provider::{AIProvider, AIProviderError, AIResponse, AIProviderConfig, TokenUsage};
-use crate::cache::AIResolutionCache;
+use crate::cache::{AIResolutionCache, CacheConfig};
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use std::collections::HashMap;
 use std::env;
@@ -21,25 +21,38 @@ pub struct CachingAIProvider {
 impl CachingAIProvider {
     /// Create a new caching provider wrapping the given provider
     pub fn new(provider: Box<dyn AIProvider>) -> Self {
-        // Check if cache is enabled via environment variable
-        let cache_enabled = env::var("RIZZLER_USE_CACHE")
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-            .unwrap_or(true); // Enable cache by default
-            
-        // Get cache TTL from environment variable, default to 1 hour
-        let cache_ttl_secs = env::var("RIZZLER_CACHE_TTL_SECS")
-            .map(|v| v.parse::<u64>().unwrap_or(3600))
-            .unwrap_or(3600);
+        // Load cache configuration from environment variables
+        let mut config = CacheConfig::from_env();
         
-        let mut cache = AIResolutionCache::with_ttl(Duration::from_secs(cache_ttl_secs));
-        cache.set_enabled(cache_enabled);
-        
-        info!("Created CachingAIProvider with cache {} (TTL: {} seconds)", 
-            if cache_enabled { "enabled" } else { "disabled" }, cache_ttl_secs);
+        // Log cache configuration
+        info!("Created CachingAIProvider with disk-based cache {} (TTL: {} hours, max entries: {:?}, auto cleanup: {}, immediate flush: {})", 
+            if config.enabled { "enabled" } else { "disabled" }, 
+            config.ttl_hours,
+            config.max_entries,
+            config.auto_cleanup,
+            config.immediate_flush
+        );
         
         CachingAIProvider {
             provider,
-            cache: Arc::new(cache),
+            cache: Arc::new(AIResolutionCache::from_config(config)),
+        }
+    }
+    
+    /// Create a new caching provider with explicit configuration
+    pub fn with_config(provider: Box<dyn AIProvider>, config: CacheConfig) -> Self {
+        // Log cache configuration
+        info!("Created CachingAIProvider with disk-based cache {} (TTL: {} hours, max entries: {:?}, auto cleanup: {}, immediate flush: {})", 
+            if config.enabled { "enabled" } else { "disabled" }, 
+            config.ttl_hours,
+            config.max_entries,
+            config.auto_cleanup,
+            config.immediate_flush
+        );
+        
+        CachingAIProvider {
+            provider,
+            cache: Arc::new(AIResolutionCache::from_config(config)),
         }
     }
     
@@ -107,6 +120,7 @@ impl AIProvider for CachingAIProvider {
 mod tests {
     use super::*;
     use std::env;
+    use tempfile::TempDir;
     
     // Mock AI Provider for testing
     struct MockAIProvider {
@@ -199,9 +213,18 @@ mod tests {
             content: "<<<<<<< HEAD\nTest content\n=======\nTheir content\n>>>>>>> branch-name\n".to_string(),
         }
     }
+
+    // Setup temporary directory for tests
+    fn setup_test_cache() -> TempDir {
+        let temp_dir = TempDir::new().unwrap();
+        env::set_var("RIZZLER_CACHE_DIR", temp_dir.path().to_str().unwrap());
+        temp_dir
+    }
     
     #[test]
     fn test_caching_provider_basics() {
+        let _temp_dir = setup_test_cache();
+        
         // Set environment variable to enable caching
         env::set_var("RIZZLER_USE_CACHE", "true");
         
@@ -216,12 +239,16 @@ mod tests {
         
         // Clean up environment
         env::remove_var("RIZZLER_USE_CACHE");
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
     
     #[test]
     fn test_caching_provider_conflict_resolution() {
+        let _temp_dir = setup_test_cache();
+        
         // Set environment variable to enable caching
         env::set_var("RIZZLER_USE_CACHE", "true");
+        env::set_var("RIZZLER_CACHE_TTL_HOURS", "1");
         
         // Create a mock provider that returns a fixed response
         let mock = Box::new(MockAIProvider::new("mock", "Resolved content\n"));
@@ -245,10 +272,14 @@ mod tests {
         
         // Clean up environment
         env::remove_var("RIZZLER_USE_CACHE");
+        env::remove_var("RIZZLER_CACHE_TTL_HOURS");
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
     
     #[test]
     fn test_caching_provider_file_resolution() {
+        let _temp_dir = setup_test_cache();
+        
         // Set environment variable to enable caching
         env::set_var("RIZZLER_USE_CACHE", "true");
         
@@ -274,10 +305,13 @@ mod tests {
         
         // Clean up environment
         env::remove_var("RIZZLER_USE_CACHE");
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
     
     #[test]
     fn test_caching_provider_disabled() {
+        let _temp_dir = setup_test_cache();
+        
         // Set environment variable to disable caching
         env::set_var("RIZZLER_USE_CACHE", "false");
         
@@ -302,5 +336,6 @@ mod tests {
         
         // Clean up environment
         env::remove_var("RIZZLER_USE_CACHE");
+        env::remove_var("RIZZLER_CACHE_DIR");
     }
 }

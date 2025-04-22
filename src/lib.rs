@@ -18,6 +18,10 @@ pub mod resolution_engine;
 pub mod retry;
 pub mod windowing;
 
+// Test modules
+#[cfg(test)]
+mod cache_disk_tests;
+
 // Re-export main structures for easier access
 pub use ai_provider::{AIProvider, AIProviderError, AIResponse};
 pub use ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};

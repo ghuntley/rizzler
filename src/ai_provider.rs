@@ -5,6 +5,7 @@ use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
+use serde::{Serialize, Deserialize};
 
 /// Error types for AI provider operations
 #[derive(Debug, Clone)]
@@ -84,7 +85,7 @@ pub struct AIProviderConfig {
 }
 
 /// Response from AI provider
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AIResponse {
     /// Resolved content
     pub content: String,
@@ -100,7 +101,7 @@ pub struct AIResponse {
 }
 
 /// Token usage statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenUsage {
     /// Input tokens used
     pub input_tokens: u32,
