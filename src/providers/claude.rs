@@ -64,7 +64,9 @@ impl ClaudeProvider {
             THEIR VERSION (incoming branch):\n```\n{}```\n\n\
             Please resolve this conflict and provide only the final resolved content that should replace \
             the conflict. Preserve the intent of both changes if possible or choose the most appropriate \
-            version if they are in direct conflict. Do not include conflict markers in your response.\n\nAssistant: ",
+            version if they are in direct conflict. Do not include conflict markers in your response. \n\n \
+            IMPORTANT DO NOT SURROUND THE CODE IN ``` OR USE MARKDOWN SYNTAX IN THE RESPONSE (UNLESS THE FILE IS MARKDOWN ITSELF). RETURN THE PLAIN TEXT INSTEAD \n\n \
+            Assistant: ",
             conflict_file.path,
             conflict.start_line,
             conflict.end_line,

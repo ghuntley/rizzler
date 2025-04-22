@@ -140,83 +140,17 @@ impl AIProvider for OpenAIProvider {
         debug!("System prompt: {}", system_prompt);
         debug!("User prompt: {}", user_prompt);
         
-        // This is a mock implementation that intelligently resolves conflicts
-        // rather than just returning a placeholder message
+        // This is a placeholder - in a real implementation, we would send the request to the OpenAI API
+        // and parse the response. For now, we'll just return a mock response for testing.
         
-        // Analyze both versions and create a sensible merge
-        let our_content = &conflict.our_content;
-        let their_content = &conflict.their_content;
+        // Mock response - this would be replaced with actual API call logic
+        let mock_response = "This is a mock response from OpenAI.\nIn a real implementation, we would call the OpenAI API and get a real response.";
         
-        // For database config conflicts, merge the configs intelligently
-        if our_content.contains("DB_HOST") && their_content.contains("DB_HOST") {
-            let resolved = "DB_HOST=\"replica.db.example.com\"\nDB_PORT=5432\nDB_USER=\"app_user\"\nDB_PASSWORD=\"new_very_secure_password\"\nDB_NAME=\"production_db\"";
-            return Ok(AIResponse {
-                content: resolved.to_string(),
-                explanation: Some("Merged database configurations, keeping replica host and new password".to_string()),
-                token_usage: Some(TokenUsage {
-                    input_tokens: 100,
-                    output_tokens: 50,
-                    total_tokens: 150,
-                }),
-                model: self.config.model.clone(),
-            });
-        }
-        
-        // For dependency checking conflicts, merge both implementations
-        if our_content.contains("check_dependencies") && their_content.contains("if ! command -v") {
-            let resolved = "check_dependencies() {\n    echo \"Checking dependencies...\"\n    for dep in \"curl\" \"jq\" \"wget\"; do\n        if ! command -v $dep &> /dev/null; then\n            install_dependency $dep\n        fi\n    done\n}\n\ninstall_dependency() {\n    echo \"Installing $1...\"\n    # Implementation details\n}";
-            return Ok(AIResponse {
-                content: resolved.to_string(),
-                explanation: Some("Merged dependency checking logic with installation function".to_string()),
-                token_usage: Some(TokenUsage {
-                    input_tokens: 100,
-                    output_tokens: 50,
-                    total_tokens: 150,
-                }),
-                model: self.config.model.clone(),
-            });
-        }
-        
-        // For error handling and threading conflicts
-        if our_content.contains("handle_error") && their_content.contains("parse_arguments") {
-            let resolved = "handle_error() {\n    echo \"Error: $1\"\n    exit 1\n}\n\nmain() {\n    echo \"Starting application with $(get_thread_count) threads...\"\n    start_worker_processes\n    setup_signal_handlers\n    wait_for_completion\n}\n\nparse_arguments() {\n    # Parse command line arguments\n    while [[ $# -gt 0 ]]; do\n        case $1 in\n            --debug) DEBUG_MODE=true ;;\n            --threads=*) THREAD_COUNT=\"${1#*=}\" ;;\n            *) echo \"Unknown option: $1\" ;;\n        esac\n        shift\n    done\n}\n\nget_thread_count() {\n    echo ${THREAD_COUNT:-$(nproc)}\n}";
-            return Ok(AIResponse {
-                content: resolved.to_string(),
-                explanation: Some("Kept error handling and added threading support with argument parsing".to_string()),
-                token_usage: Some(TokenUsage {
-                    input_tokens: 100,
-                    output_tokens: 50,
-                    total_tokens: 150,
-                }),
-                model: self.config.model.clone(),
-            });
-        }
-        
-        // For command line arguments conflict
-        if our_content.contains("main") && their_content.contains("main \"$@\"") {
-            let resolved = "main \"$@\"";
-            return Ok(AIResponse {
-                content: resolved.to_string(),
-                explanation: Some("Using the version that passes command line arguments to main".to_string()),
-                token_usage: Some(TokenUsage {
-                    input_tokens: 100,
-                    output_tokens: 50,
-                    total_tokens: 150,
-                }),
-                model: self.config.model.clone(),
-            });
-        }
-        
-        // Default fallback for any other conflict
-        let resolved_content = if our_content.len() > their_content.len() {
-            our_content.clone()
-        } else {
-            their_content.clone()
-        };
+        let resolved_content = self.parse_response(mock_response)?;
         
         Ok(AIResponse {
             content: resolved_content,
-            explanation: Some("Selected the more comprehensive version of the conflict".to_string()),
+            explanation: Some("Mock explanation for testing".to_string()),
             token_usage: Some(TokenUsage {
                 input_tokens: 100,
                 output_tokens: 50,
@@ -244,35 +178,17 @@ impl AIProvider for OpenAIProvider {
         debug!("System prompt: {}", system_prompt);
         debug!("User prompt: {}", user_prompt);
         
-        // Instead of just returning a mock message, we'll resolve each conflict and build a complete file
+        // This is a placeholder - in a real implementation, we would send the request to the OpenAI API
+        // and parse the response. For now, we'll just return a mock response for testing.
         
-        // Start with content before first conflict
-        let mut resolved_content = String::new();
-        let mut current_position = 0;
+        // Mock response - this would be replaced with actual API call logic
+        let mock_response = "This is a mock response from OpenAI for the entire file.\nIn a real implementation, we would call the OpenAI API and get a real response.";
         
-        for conflict in &conflict_file.conflicts {
-            // Add content between the last conflict and this one
-            if let Some(between_content) = conflict_file.content.get(current_position..conflict.start_line as usize - 1) {
-                resolved_content.push_str(between_content);
-            }
-            
-            // Resolve this conflict
-            let conflict_resolution = self.resolve_conflict(conflict_file, conflict)?;
-            resolved_content.push_str(&conflict_resolution.content);
-            resolved_content.push_str("\n");
-            
-            // Update position to after this conflict
-            current_position = conflict.end_line as usize;
-        }
-        
-        // Add remaining content after the last conflict
-        if let Some(remaining) = conflict_file.content.get(current_position..) {
-            resolved_content.push_str(remaining);
-        }
+        let resolved_content = self.parse_response(mock_response)?;
         
         Ok(AIResponse {
             content: resolved_content,
-            explanation: Some("Resolved all conflicts in the file".to_string()),
+            explanation: Some("Mock explanation for testing".to_string()),
             token_usage: Some(TokenUsage {
                 input_tokens: 200,
                 output_tokens: 100,

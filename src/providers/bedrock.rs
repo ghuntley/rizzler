@@ -249,7 +249,8 @@ impl BedrockProvider {
             Analyze the conflicts carefully and provide a resolution that preserves the intent \
             of both sides whenever possible. When there are direct contradictions, choose the \
             approach that seems most correct based on surrounding code context and programming \
-            best practices. Only provide the resolved code without conflict markers or explanations.".to_string()
+            best practices. Only provide the resolved code without conflict markers or explanations. \
+            IMPORTANT DO NOT SURROUND THE CODE IN ``` OR USE MARKDOWN SYNTAX IN THE RESPONSE (UNLESS THE FILE IS MARKDOWN ITSELF). RETURN THE PLAIN TEXT INSTEAD".to_string()
         } else {
             // Generic system prompt for other models
             "Resolve Git merge conflicts by analyzing both sides and providing a clean merged result.".to_string()
