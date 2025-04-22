@@ -118,6 +118,8 @@ mod tests {
     use super::*;
     use std::env;
     use tempfile::TempDir;
+    use std::collections::HashMap;
+    use crate::ai_provider::TokenUsage;
     
     // Mock AI Provider for testing
     struct MockAIProvider {

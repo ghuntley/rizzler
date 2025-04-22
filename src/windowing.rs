@@ -182,8 +182,9 @@ impl ResolutionStrategy for WindowingStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ai_provider::{AIProviderConfig, TokenUsage};
+    use crate::ai_provider::{AIProviderConfig, TokenUsage, AIProviderError};
     use std::collections::HashMap;
+    use crate::{AIResponse};
     
     // Mock AI provider for testing
     struct MockAIProvider {

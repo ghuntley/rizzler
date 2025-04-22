@@ -164,38 +164,37 @@ mod tests {
         assert!(matches!(result, Err(MergeDriverError::InvalidArgumentCount)));
     }
     
-    proptest! {
-        #[test]
-        fn test_parse_merge_driver_args_prop(ancestor: String, current: String, other: String, conflict: String) {
-            // Create temp files for testing
-            let temp_dir = tempfile::tempdir().unwrap();
-            
-            let ancestor_path = temp_dir.path().join(&ancestor);
-            let current_path = temp_dir.path().join(&current);
-            let other_path = temp_dir.path().join(&other);
-            let conflict_path = temp_dir.path().join(&conflict);
-            
-            // Create the files
-            File::create(&ancestor_path).unwrap().write_all(b"ancestor").unwrap();
-            File::create(&current_path).unwrap().write_all(b"current").unwrap();
-            File::create(&other_path).unwrap().write_all(b"other").unwrap();
-            File::create(&conflict_path).unwrap().write_all(b"conflict").unwrap();
-            
-            let args = vec![
-                ancestor_path.to_str().unwrap().to_string(),
-                current_path.to_str().unwrap().to_string(),
-                other_path.to_str().unwrap().to_string(),
-                conflict_path.to_str().unwrap().to_string(),
-            ];
-            
-            let result = parse_merge_driver_args(&args);
-            prop_assert!(result.is_ok());
-            
-            let paths = result.unwrap();
-            prop_assert_eq!(&paths.ancestor_path, &args[0]);
-            prop_assert_eq!(&paths.current_path, &args[1]);
-            prop_assert_eq!(&paths.other_path, &args[2]);
-            prop_assert_eq!(&paths.conflict_path, &args[3]);
-        }
+    // Using a standard test with real temporary files
+    #[test]
+    fn test_parse_merge_driver_args_fixed() {
+        // Create temp files for testing
+        let temp_dir = tempfile::tempdir().unwrap();
+        
+        let ancestor_path = temp_dir.path().join("ancestor_file");
+        let current_path = temp_dir.path().join("current_file");
+        let other_path = temp_dir.path().join("other_file");
+        let conflict_path = temp_dir.path().join("conflict_file");
+        
+        // Create the files
+        File::create(&ancestor_path).unwrap().write_all(b"ancestor").unwrap();
+        File::create(&current_path).unwrap().write_all(b"current").unwrap();
+        File::create(&other_path).unwrap().write_all(b"other").unwrap();
+        File::create(&conflict_path).unwrap().write_all(b"conflict").unwrap();
+        
+        let args = vec![
+            ancestor_path.to_str().unwrap().to_string(),
+            current_path.to_str().unwrap().to_string(),
+            other_path.to_str().unwrap().to_string(),
+            conflict_path.to_str().unwrap().to_string(),
+        ];
+        
+        let result = parse_merge_driver_args(&args);
+        assert!(result.is_ok());
+        
+        let paths = result.unwrap();
+        assert_eq!(paths.ancestor_path, args[0]);
+        assert_eq!(paths.current_path, args[1]);
+        assert_eq!(paths.other_path, args[2]);
+        assert_eq!(paths.conflict_path, args[3]);
     }
 }

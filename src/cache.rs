@@ -674,6 +674,7 @@ mod tests {
     use std::thread;
     use std::fs;
     use tempfile::TempDir;
+    use crate::ai_provider::TokenUsage;
     
     // Helper function to create a test conflict region
     fn create_test_conflict(our_content: &str, their_content: &str) -> ConflictRegion {
