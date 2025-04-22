@@ -1,11 +1,11 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use std::fs::{self, File, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 /// Error type for Git setup operations
 #[derive(Debug)]

@@ -1,9 +1,9 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use rizzler_ai_resolver::GeminiProvider;
-use rizzler_ai_resolver::ai_provider::{AIProvider, AIProviderError};
-use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler::providers::GeminiProvider;
+use rizzler::ai_provider::{AIProvider, AIProviderError};
+use rizzler::conflict_parser::{ConflictFile, ConflictRegion};
 use std::env;
 
 // Helper function to create a test conflict region

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use rizzler_ai_resolver::conflict_parser::{parse_conflict_file_with_context_matching};
+use rizzler::conflict_parser::{parse_conflict_file_with_context_matching};
 use std::fs::File;
 use std::io::Write;
 use tempfile::tempdir;
@@ -119,17 +119,6 @@ function processRequest(request) {
                 return {
                     // Level 2 nesting
                     id: data.id,
-<<<<<<< HEAD
-                    value: (function() {
-                        // Level 3 nesting with our changes
-                        const baseValue = data.value * 3; // Changed multiplier
-                        if (baseValue > 150) { // Changed threshold
-                            return 150; // Changed cap
-                        } else {
-                            return baseValue;
-                        }
-                    })(),
-=======
                     value: (function() {
                         // Level 3 nesting with their changes
                         const baseValue = data.value * 2;
@@ -141,7 +130,6 @@ function processRequest(request) {
                             return baseValue;
                         }
                     })(),
->>>>>>> branch-name
                     processed: true
                 };
             } else {
@@ -235,18 +223,11 @@ fn main() {
     let conflict_path = temp_dir.path().join("conflict_rust.txt");
     let conflict_content = r#"// Rust code example
 
-<<<<<<< HEAD
-fn calculate_value(raw: f64) -> f64 {
-    let factor = 2.0; // Increased factor
-    raw * factor
-}
-=======
 fn calculate_value(raw: f64) -> f64 {
     let factor = 1.5;
     let offset = 10.0; // Added offset
     raw * factor + offset
 }
->>>>>>> branch-name
 
 fn process_data(data: Vec<f64>) -> Vec<f64> {
     data.iter()
@@ -332,18 +313,11 @@ class DataProcessor {
         this.factor = 1.5;
     }
     
-<<<<<<< HEAD
-    calculateValue(raw) {
-        const factor = this.config.factor || this.factor;
-        return raw * factor;
-    }
-=======
     calculateValue(raw) {
         const factor = this.factor;
         const offset = 10;
         return (raw * factor) + offset;
     }
->>>>>>> branch-name
     
     process(data) {
         return data.map(item => this.calculateValue(item));
@@ -414,23 +388,16 @@ function otherFunction() {{
         let conflict_path = temp_dir.path().join("conflict_prop.txt");
         let conflict_content = format!(r#"// Dynamic function name test
 
-<<<<<<< HEAD
-function {}(raw) {{
-    const factor = {}; // Our change
-    return raw * factor;
-}}
-=======
 function {}(raw) {{
     const factor = {}; // Their change
     return raw * factor;
 }}
->>>>>>> branch-name
 
 function otherFunction() {{
     // Some other code
     return 42;
 }}
-"#, function_name, our_factor, function_name, their_factor);
+"#, function_name, their_factor);
         
         File::create(&conflict_path)
             .unwrap()

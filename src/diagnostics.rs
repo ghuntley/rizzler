@@ -1,14 +1,13 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use crate::ai_provider::{AIProvider, AIProviderError};
+use crate::ai_provider::AIProvider;
 use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 use std::env;
 use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
-use tracing::{debug, error, info, warn};
 
 /// Represents the result of a diagnostic check
 pub struct DiagnosticResult {

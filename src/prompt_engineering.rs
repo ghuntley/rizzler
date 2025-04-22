@@ -3,7 +3,6 @@
 
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use std::env;
-use tracing::{debug, info};
 
 /// Template variants for prompt generation
 pub enum PromptTemplate {
@@ -358,7 +357,7 @@ impl PromptGenerator {
     }
     
     /// Extract surrounding context from the file content
-    fn extract_surrounding_context(conflict_file: &ConflictFile, conflict: &ConflictRegion) -> String {
+    fn extract_surrounding_context(_conflict_file: &ConflictFile, _conflict: &ConflictRegion) -> String {
         // This is a simplified implementation
         // In a real implementation, we would extract non-conflicting lines around the conflict
         // For now, we'll return an empty string

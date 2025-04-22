@@ -1,6 +1,6 @@
-use rizzler_ai_resolver::ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
-use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
-use rizzler_ai_resolver::ResolutionStrategy;
+use rizzler::ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
+use rizzler::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler::resolution_engine::ResolutionStrategy;
 use std::env;
 
 // Helper function to create a test conflict region

@@ -1,10 +1,10 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use crate::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage};
+use crate::ai_provider::AIProvider;
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info};
 
 /// The `WindowingStrategy` enhances AI resolution for large files
 /// by breaking them into smaller chunks that fit within token limits

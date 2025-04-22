@@ -1,8 +1,8 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use crate::ai_provider::{AIProvider, AIProviderError};
-use crate::ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy, map_ai_error_to_resolution_error};
+use crate::ai_provider::AIProvider;
+use crate::ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
 use crate::windowing::WindowingStrategy;

@@ -1,9 +1,8 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use crate::ai_provider::{AIResponse, TokenUsage};
+use crate::ai_provider::AIResponse;
 use crate::conflict_parser::{ConflictRegion, ConflictFile};
-use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};

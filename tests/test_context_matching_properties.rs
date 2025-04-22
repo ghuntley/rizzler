@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use rizzler_ai_resolver::conflict_parser::{parse_conflict_file_with_context_matching, ConflictFile};
+use rizzler::conflict_parser::{parse_conflict_file_with_context_matching, ConflictFile};
 use proptest::prelude::*;
 use std::fs::File;
 use std::io::Write;

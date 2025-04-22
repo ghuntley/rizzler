@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use rizzler_ai_resolver::conflict_parser::{parse_conflict_file_with_context_matching, ConflictFile};
+use rizzler::conflict_parser::{parse_conflict_file_with_context_matching, ConflictFile, ConflictRegion};
 use std::fs::File;
 use std::io::Write;
 use tempfile::tempdir;
@@ -58,18 +58,10 @@ function transform(item) {
     };
 }
 
-<<<<<<< HEAD
 function calculateValue(raw) {
     const factor = 2.0; // We increased the factor
     return raw * factor;
 }
-=======
-function calculateValue(raw) {
-    const factor = 1.5;
-    const offset = 10; // Added an offset
-    return (raw * factor) + offset;
-}
->>>>>>> branch-name
 "#;
     
     File::create(&conflict_path)
@@ -148,18 +140,10 @@ fn test_context_matching_with_nested_functions() {
         return 'result1';
     }
     
-<<<<<<< HEAD
     function inner2() {
         console.log('Inner function 2 - modified');
         return 'modified-result2';
     }
-=======
-    function inner2() {
-        console.log('Inner function 2');
-        console.log('With extra logging');
-        return 'result2-with-logging';
-    }
->>>>>>> branch-name
     
     return inner1() + inner2();
 }

@@ -5,7 +5,7 @@ use crate::ai_provider::{AIProvider, AIProviderConfig, AIProviderError, AIRespon
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use std::collections::HashMap;
 use std::env;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info};
 
 /// OpenAI provider implementation
 pub struct OpenAIProvider {

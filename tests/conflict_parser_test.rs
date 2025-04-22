@@ -1,9 +1,10 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use rizzler_ai_resolver::conflict_parser::{parse_conflict_file, parse_conflict_file_with_base, ConflictParseError};
-use std::fs::File;
+use rizzler::conflict_parser::{parse_conflict_file, parse_conflict_file_with_base, ConflictFile, ConflictRegion};
+use tempfile::NamedTempFile;
 use std::io::Write;
+use std::fs::File;
 
 #[test]
 fn test_conflict_parser_with_base() {

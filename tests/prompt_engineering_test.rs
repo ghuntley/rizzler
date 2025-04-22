@@ -1,8 +1,8 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use rizzler_ai_resolver::prompt_engineering::{PromptGenerator, PromptTemplate};
-use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler::prompt_engineering::{PromptGenerator, PromptTemplate};
+use rizzler::conflict_parser::{ConflictFile, ConflictRegion};
 use std::env;
 
 // Helper function to create a test conflict region

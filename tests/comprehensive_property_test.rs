@@ -1,13 +1,16 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use rizzler_ai_resolver::{
-    conflict_parser::{ConflictFile, ConflictRegion},
-    resolution_engine::{ResolutionEngine, ResolutionError, ResolutionStrategy},
-    ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy}
+use rizzler::{
+    conflict_parser::{parse_conflict_file, ConflictFile, ConflictRegion},
+    ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy},
+    resolution_engine::{ResolutionStrategy, ResolutionEngine, ResolutionError}
 };
 use proptest::prelude::*;
 use std::env;
+use std::fs::File;
+use std::io::Write;
+use tempfile::tempdir;
 
 // Mock resolution strategy for testing
 #[derive(Clone)]

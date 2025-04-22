@@ -1,13 +1,12 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use crate::ai_provider::{AIProvider, AIProviderError};
-use crate::ai_resolution::AIResolutionStrategy;
+use crate::ai_provider::AIProvider;
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
 use std::env;
-use tracing::{debug, info, warn, error};
+use tracing::{info, warn};
 
 /// A multi-provider resolution strategy that tries multiple AI providers in sequence
 /// until one succeeds or all fail

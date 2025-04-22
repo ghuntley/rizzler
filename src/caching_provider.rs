@@ -1,13 +1,10 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use crate::ai_provider::{AIProvider, AIProviderError, AIResponse, AIProviderConfig, TokenUsage};
+use crate::ai_provider::{AIProvider, AIProviderError, AIResponse, AIProviderConfig};
 use crate::cache::{AIResolutionCache, CacheConfig};
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
-use std::collections::HashMap;
-use std::env;
 use std::sync::Arc;
-use std::time::Duration;
 use tracing::info;
 
 /// A wrapper around an AI provider that adds caching functionality
@@ -22,7 +19,7 @@ impl CachingAIProvider {
     /// Create a new caching provider wrapping the given provider
     pub fn new(provider: Box<dyn AIProvider>) -> Self {
         // Load cache configuration from environment variables
-        let mut config = CacheConfig::from_env();
+        let config = CacheConfig::from_env();
         
         // Log cache configuration
         info!("Created CachingAIProvider with disk-based cache {} (TTL: {} hours, max entries: {:?}, auto cleanup: {}, immediate flush: {})", 

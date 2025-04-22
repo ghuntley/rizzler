@@ -1,8 +1,9 @@
-use rizzler_ai_resolver::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage};
-use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
-use rizzler_ai_resolver::providers::OpenAIProvider;
-use rizzler_ai_resolver::windowing::WindowingStrategy;
+use rizzler::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage};
+use rizzler::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler::providers::OpenAIProvider;
+use rizzler::windowing::WindowingStrategy;
 use std::env;
+use std::collections::HashMap;
 
 #[test]
 fn test_windowing_strategy() {
@@ -72,7 +73,7 @@ impl AIProvider for MockAIProvider {
         true
     }
     
-    fn config(&self) -> &rizzler_ai_resolver::ai_provider::AIProviderConfig {
+    fn config(&self) -> &rizzler::ai_provider::AIProviderConfig {
         // We don't need this for the mock
         unimplemented!()
     }

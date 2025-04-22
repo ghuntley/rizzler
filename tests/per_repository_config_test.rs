@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use rizzler_ai_resolver::config::{Config, ConfigError};
+use rizzler::config::{Config, ConfigError};
 use std::env;
 use std::fs::File;
 use std::io::Write;

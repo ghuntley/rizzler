@@ -1,4 +1,4 @@
-use rizzler_ai_resolver::conflict_parser::{parse_conflict_file, parse_conflict_file_with_base, ConflictParseError};
+use rizzler::conflict_parser::{parse_conflict_file, parse_conflict_file_with_base, ConflictParseError};
 use std::fs::File;
 use std::io::Write;
 use tempfile::tempdir;
@@ -53,7 +53,7 @@ After section 2
     conflict_file.write_all(conflict_content.as_bytes()).unwrap();
     
     // Parse the conflict file with smart base content matching
-    let result = rizzler_ai_resolver::conflict_parser::parse_conflict_file_with_context_matching(
+    let result = rizzler::conflict_parser::parse_conflict_file_with_context_matching(
         conflict_path.to_str().unwrap(),
         base_path.to_str().unwrap()
     );
@@ -110,7 +110,7 @@ Last part of the document.
     conflict_file.write_all(conflict_content.as_bytes()).unwrap();
     
     // Parse the conflict file with smart base content matching
-    let result = rizzler_ai_resolver::conflict_parser::parse_conflict_file_with_context_matching(
+    let result = rizzler::conflict_parser::parse_conflict_file_with_context_matching(
         conflict_path.to_str().unwrap(),
         base_path.to_str().unwrap()
     );

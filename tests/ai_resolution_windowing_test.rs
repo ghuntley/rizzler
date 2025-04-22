@@ -1,9 +1,11 @@
-use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
-use rizzler_ai_resolver::ai_resolution_windowing::{AIFileResolutionWithWindowingStrategy, AIResolutionWithWindowingStrategy};
-use rizzler_ai_resolver::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage, AIProviderConfig};
-use rizzler_ai_resolver::resolution_engine::{ResolutionStrategy, ResolutionError};
+use rizzler::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler::ai_resolution_windowing::{AIFileResolutionWithWindowingStrategy, AIResolutionWithWindowingStrategy};
+use rizzler::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage, AIProviderConfig};
+use rizzler::resolution_engine::{ResolutionStrategy, ResolutionError};
 use std::env;
+use proptest::prelude::*;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 // Mock AI provider for testing
 struct MockAIProvider {
@@ -104,7 +106,7 @@ impl AIProvider for MockAIProvider {
 // Mock the AIResolutionStrategy for testing
 mod ai_resolution_mocks {
     use super::*;
-    use rizzler_ai_resolver::resolution_engine::{ResolutionStrategy, ResolutionError};
+    use rizzler::resolution_engine::{ResolutionStrategy, ResolutionError};
     
     pub struct MockAIResolutionStrategy;
     
@@ -149,7 +151,7 @@ fn test_ai_resolution_with_windowing_large_file() {
     
     // Create a windowing mock (we're not testing the actual AIResolutionStrategy here)
     let mock_provider = Box::new(MockAIProvider::new());
-    let windowing_strategy = rizzler_ai_resolver::windowing::WindowingStrategy::new(mock_provider, 10);
+    let windowing_strategy = rizzler::windowing::WindowingStrategy::new(mock_provider, 10);
     
     // Resolve all conflicts in the file
     let result = windowing_strategy.resolve_file(&conflict_file);
@@ -179,7 +181,7 @@ fn test_ai_resolution_with_windowing_small_file() {
     
     // Create a windowing mock
     let mock_provider = Box::new(MockAIProvider::new());
-    let windowing_strategy = rizzler_ai_resolver::windowing::WindowingStrategy::new(mock_provider, 10);
+    let windowing_strategy = rizzler::windowing::WindowingStrategy::new(mock_provider, 10);
     
     // Resolve the conflict
     let result = windowing_strategy.resolve_conflict(&conflict);

@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use rizzler::{Config, conflict_parser, git_integration, git_setup, ResolutionEngine, DiagnosticStatus, write_diagnostic_results, run_diagnostics, format_diagnostic_results};
 use std::env;
 use std::process;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 use tracing_subscriber::{fmt, EnvFilter};
 
 #[derive(Parser)]

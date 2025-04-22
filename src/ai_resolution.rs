@@ -2,16 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 use crate::ai_provider::{AIProvider, AIProviderError};
-use crate::cache::AIResolutionCache;
 use crate::caching_provider::CachingAIProvider;
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use crate::fallback::FallbackResolutionStrategy;
 use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
-use crate::retry::{RetryableProvider, RetryConfig};
+use crate::retry::RetryableProvider;
 use std::env;
-use std::sync::Arc;
-use tracing::{debug, info, warn, error};
+use tracing::{info, warn, error};
 
 /// AI-based resolution strategy using supported AI providers
 pub struct AIResolutionStrategy {

@@ -6,7 +6,7 @@ use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use std::env;
 use std::thread;
 use std::time::Duration;
-use tracing::{debug, info, warn, error};
+use tracing::{info, warn, error};
 
 /// Default maximum number of retries if not specified
 const DEFAULT_MAX_RETRIES: u32 = 3;

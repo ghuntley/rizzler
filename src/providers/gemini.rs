@@ -6,7 +6,7 @@ use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use crate::prompt_engineering::{PromptGenerator, PromptTemplate};
 use std::collections::HashMap;
 use std::env;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info};
 use ureq;
 use std::time::Duration;
 use serde_json::{json, Value};

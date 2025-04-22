@@ -7,7 +7,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::io::Write;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 /// Configuration for the rizzler
 #[derive(Debug, Deserialize, Serialize, Clone)]
