@@ -29,11 +29,11 @@ impl AIResolutionWithWindowingStrategy {
         let ai_strategy = AIResolutionStrategy::new()?;
         
         // Get windowing configuration from environment variables
-        let token_limit = env::var("GIT_MERGE_AI_TOKEN_LIMIT")
+        let token_limit = env::var("RIZZLER_TOKEN_LIMIT")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
-        let max_context_lines = env::var("GIT_MERGE_AI_MAX_CONTEXT_LINES")
+        let max_context_lines = env::var("RIZZLER_MAX_CONTEXT_LINES")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
@@ -50,11 +50,11 @@ impl AIResolutionWithWindowingStrategy {
         let ai_strategy = AIResolutionStrategy::with_provider(provider_name)?;
         
         // Get windowing configuration from environment variables
-        let token_limit = env::var("GIT_MERGE_AI_TOKEN_LIMIT")
+        let token_limit = env::var("RIZZLER_TOKEN_LIMIT")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
-        let max_context_lines = env::var("GIT_MERGE_AI_MAX_CONTEXT_LINES")
+        let max_context_lines = env::var("RIZZLER_MAX_CONTEXT_LINES")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
@@ -71,11 +71,11 @@ impl AIResolutionWithWindowingStrategy {
         let ai_strategy = AIResolutionStrategy::with_fallback(providers_list)?;
         
         // Get windowing configuration from environment variables
-        let token_limit = env::var("GIT_MERGE_AI_TOKEN_LIMIT")
+        let token_limit = env::var("RIZZLER_TOKEN_LIMIT")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
-        let max_context_lines = env::var("GIT_MERGE_AI_MAX_CONTEXT_LINES")
+        let max_context_lines = env::var("RIZZLER_MAX_CONTEXT_LINES")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
@@ -170,11 +170,11 @@ impl AIFileResolutionWithWindowingStrategy {
         let ai_file_strategy = AIFileResolutionStrategy::new()?;
         
         // Get windowing configuration from environment variables
-        let token_limit = env::var("GIT_MERGE_AI_TOKEN_LIMIT")
+        let token_limit = env::var("RIZZLER_TOKEN_LIMIT")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
-        let max_context_lines = env::var("GIT_MERGE_AI_MAX_CONTEXT_LINES")
+        let max_context_lines = env::var("RIZZLER_MAX_CONTEXT_LINES")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
@@ -191,11 +191,11 @@ impl AIFileResolutionWithWindowingStrategy {
         let ai_file_strategy = AIFileResolutionStrategy::with_provider(provider_name)?;
         
         // Get windowing configuration from environment variables
-        let token_limit = env::var("GIT_MERGE_AI_TOKEN_LIMIT")
+        let token_limit = env::var("RIZZLER_TOKEN_LIMIT")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
-        let max_context_lines = env::var("GIT_MERGE_AI_MAX_CONTEXT_LINES")
+        let max_context_lines = env::var("RIZZLER_MAX_CONTEXT_LINES")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
@@ -212,11 +212,11 @@ impl AIFileResolutionWithWindowingStrategy {
         let ai_file_strategy = AIFileResolutionStrategy::with_fallback(providers_list)?;
         
         // Get windowing configuration from environment variables
-        let token_limit = env::var("GIT_MERGE_AI_TOKEN_LIMIT")
+        let token_limit = env::var("RIZZLER_TOKEN_LIMIT")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
-        let max_context_lines = env::var("GIT_MERGE_AI_MAX_CONTEXT_LINES")
+        let max_context_lines = env::var("RIZZLER_MAX_CONTEXT_LINES")
             .map(|v| v.parse::<usize>().unwrap_or(100))
             .unwrap_or(100);
         
@@ -334,13 +334,13 @@ mod tests {
     fn test_ai_resolution_with_windowing_initialization() {
         // Set environment variables for testing
         // Set required environment variables for all providers
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
         env::set_var("AWS_REGION", "us-east-1");
         
-        env::set_var("GIT_MERGE_AI_TOKEN_LIMIT", "100"); // This needs to match the actual defaults
-        env::set_var("GIT_MERGE_AI_MAX_CONTEXT_LINES", "50");
+        env::set_var("RIZZLER_TOKEN_LIMIT", "100"); // This needs to match the actual defaults
+        env::set_var("RIZZLER_MAX_CONTEXT_LINES", "50");
         
         // Test initialization
         let strategy = AIResolutionWithWindowingStrategy::new();
@@ -351,12 +351,12 @@ mod tests {
         assert_eq!(strategy.max_context_lines, 50);
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
         env::remove_var("AWS_REGION");
-        env::remove_var("GIT_MERGE_AI_TOKEN_LIMIT");
-        env::remove_var("GIT_MERGE_AI_MAX_CONTEXT_LINES");
+        env::remove_var("RIZZLER_TOKEN_LIMIT");
+        env::remove_var("RIZZLER_MAX_CONTEXT_LINES");
     }
     
     // This test has been removed as it duplicates functionality

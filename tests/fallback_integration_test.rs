@@ -1,10 +1,10 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use git_merge_ai_resolver::ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
-use git_merge_ai_resolver::fallback::FallbackResolutionStrategy;
-use git_merge_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
-use git_merge_ai_resolver::resolution_engine::{ResolutionStrategy, ResolutionError};
+use rizzler_ai_resolver::ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
+use rizzler_ai_resolver::fallback::FallbackResolutionStrategy;
+use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler_ai_resolver::resolution_engine::{ResolutionStrategy, ResolutionError};
 use std::env;
 
 // Helper function to create a test conflict region
@@ -31,9 +31,9 @@ fn create_test_conflict_file(conflicts: Vec<ConflictRegion>) -> ConflictFile {
 #[test]
 fn test_ai_resolution_strategy_with_fallback() {
     // Set environment variables for testing
-    env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
     env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
     env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
     env::set_var("AWS_REGION", "us-east-1");
@@ -52,9 +52,9 @@ fn test_ai_resolution_strategy_with_fallback() {
     assert!(result.is_ok(), "Conflict resolution should succeed in test mode");
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-    env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-    env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+    env::remove_var("RIZZLER_OPENAI_API_KEY");
+    env::remove_var("RIZZLER_CLAUDE_API_KEY");
+    env::remove_var("RIZZLER_GEMINI_API_KEY");
     env::remove_var("AWS_ACCESS_KEY_ID");
     env::remove_var("AWS_SECRET_ACCESS_KEY");
     env::remove_var("AWS_REGION");
@@ -64,9 +64,9 @@ fn test_ai_resolution_strategy_with_fallback() {
 #[test]
 fn test_ai_file_resolution_strategy_with_fallback() {
     // Set environment variables for testing
-    env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
     env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
     env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
     env::set_var("AWS_REGION", "us-east-1");
@@ -87,9 +87,9 @@ fn test_ai_file_resolution_strategy_with_fallback() {
     assert!(result.is_ok());
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-    env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-    env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+    env::remove_var("RIZZLER_OPENAI_API_KEY");
+    env::remove_var("RIZZLER_CLAUDE_API_KEY");
+    env::remove_var("RIZZLER_GEMINI_API_KEY");
     env::remove_var("AWS_ACCESS_KEY_ID");
     env::remove_var("AWS_SECRET_ACCESS_KEY");
     env::remove_var("AWS_REGION");
@@ -100,15 +100,15 @@ fn test_ai_file_resolution_strategy_with_fallback() {
 fn test_ai_resolution_strategy_with_fallback_failover() {
     // Set up environment similar to the previous test
     // In test mode, the key value actually doesn't matter
-    env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key"); 
-    env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key"); 
+    env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
     env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
     env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
     env::set_var("AWS_REGION", "us-east-1");
     
     // Ensure API key is set correctly for Claude provider
-    env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
     
     let strategy = AIResolutionStrategy::with_provider("claude");
     assert!(strategy.is_ok(), "Creating AIResolutionStrategy with Claude provider should succeed in test mode");
@@ -123,9 +123,9 @@ fn test_ai_resolution_strategy_with_fallback_failover() {
     assert!(result.is_ok());
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-    env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-    env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+    env::remove_var("RIZZLER_OPENAI_API_KEY");
+    env::remove_var("RIZZLER_CLAUDE_API_KEY");
+    env::remove_var("RIZZLER_GEMINI_API_KEY");
     env::remove_var("AWS_ACCESS_KEY_ID");
     env::remove_var("AWS_SECRET_ACCESS_KEY");
     env::remove_var("AWS_REGION");
@@ -135,12 +135,12 @@ fn test_ai_resolution_strategy_with_fallback_failover() {
 #[test]
 fn test_ai_file_resolution_strategy_with_fallback_failover() {
     // Set both API keys, but we'll mock OpenAI to fail in the test
-    env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
     
     // Ensure API keys are set correctly for fallback providers
-    env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
     
     // Test creating an AIFileResolutionStrategy with fallback
     let strategy = AIFileResolutionStrategy::with_fallback("openai,claude");
@@ -157,6 +157,6 @@ fn test_ai_file_resolution_strategy_with_fallback_failover() {
     assert!(result.is_ok());
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-    env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+    env::remove_var("RIZZLER_OPENAI_API_KEY");
+    env::remove_var("RIZZLER_CLAUDE_API_KEY");
 }

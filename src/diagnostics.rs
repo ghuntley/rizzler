@@ -95,12 +95,12 @@ fn check_git_installation() -> DiagnosticResult {
 fn check_git_configuration() -> DiagnosticResult {
     // Check global configuration
     let global_config = Command::new("git")
-        .args(["config", "--global", "--get", "merge.git-merge-ai-resolver.driver"])
+        .args(["config", "--global", "--get", "merge.rizzler.driver"])
         .output();
         
     // Check local configuration
     let local_config = Command::new("git")
-        .args(["config", "--local", "--get", "merge.git-merge-ai-resolver.driver"])
+        .args(["config", "--local", "--get", "merge.rizzler.driver"])
         .output();
     
     match (global_config, local_config) {
@@ -108,7 +108,7 @@ fn check_git_configuration() -> DiagnosticResult {
             DiagnosticResult {
                 name: "Git Merge Driver Configuration".to_string(),
                 status: DiagnosticStatus::Pass,
-                message: "Git is configured with git-merge-ai-resolver merge driver".to_string(),
+                message: "Git is configured with rizzler merge driver".to_string(),
                 resolution: None,
             }
         },
@@ -116,8 +116,8 @@ fn check_git_configuration() -> DiagnosticResult {
             DiagnosticResult {
                 name: "Git Merge Driver Configuration".to_string(),
                 status: DiagnosticStatus::Warning,
-                message: "Git is not configured with git-merge-ai-resolver merge driver".to_string(),
-                resolution: Some("Run 'git-merge-ai-resolver setup --global --extensions js py rs' to configure".to_string()),
+                message: "Git is not configured with rizzler merge driver".to_string(),
+                resolution: Some("Run 'rizzler setup --global --extensions js py rs' to configure".to_string()),
             }
         },
     }
@@ -152,22 +152,22 @@ fn check_gitattributes() -> DiagnosticResult {
         DiagnosticResult {
             name: "Gitattributes Configuration".to_string(),
             status: DiagnosticStatus::Pass,
-            message: "Gitattributes is configured with git-merge-ai-resolver".to_string(),
+            message: "Gitattributes is configured with rizzler".to_string(),
             resolution: None,
         }
     } else if global_exists || local_exists {
         DiagnosticResult {
             name: "Gitattributes Configuration".to_string(),
             status: DiagnosticStatus::Warning,
-            message: "Gitattributes file exists but does not configure git-merge-ai-resolver".to_string(),
-            resolution: Some("Run 'git-merge-ai-resolver setup' to configure gitattributes".to_string()),
+            message: "Gitattributes file exists but does not configure rizzler".to_string(),
+            resolution: Some("Run 'rizzler setup' to configure gitattributes".to_string()),
         }
     } else {
         DiagnosticResult {
             name: "Gitattributes Configuration".to_string(),
             status: DiagnosticStatus::Warning,
             message: "No gitattributes file found".to_string(),
-            resolution: Some("Run 'git-merge-ai-resolver setup' to create and configure gitattributes".to_string()),
+            resolution: Some("Run 'rizzler setup' to create and configure gitattributes".to_string()),
         }
     }
 }
@@ -175,7 +175,7 @@ fn check_gitattributes() -> DiagnosticResult {
 /// Check if a gitattributes file contains our merge driver
 fn check_gitattributes_file(path: &Path) -> bool {
     if let Ok(contents) = std::fs::read_to_string(path) {
-        contents.contains("merge=git-merge-ai-resolver")
+        contents.contains("merge=rizzler")
     } else {
         false
     }
@@ -242,7 +242,7 @@ fn check_ai_providers() -> DiagnosticResult {
             name: "AI Providers".to_string(),
             status: DiagnosticStatus::Fail,
             message: "No AI providers are available".to_string(),
-            resolution: Some("Configure at least one AI provider by setting the appropriate environment variables (GIT_MERGE_OPENAI_API_KEY, GIT_MERGE_CLAUDE_API_KEY, etc.)".to_string()),
+            resolution: Some("Configure at least one AI provider by setting the appropriate environment variables (RIZZLER_OPENAI_API_KEY, RIZZLER_CLAUDE_API_KEY, etc.)".to_string()),
         }
     }
 }
@@ -251,12 +251,12 @@ fn check_ai_providers() -> DiagnosticResult {
 fn check_environment_variables() -> DiagnosticResult {
     let mut set_variables = Vec::new();
     let important_variables = [
-        "GIT_MERGE_OPENAI_API_KEY",
-        "GIT_MERGE_CLAUDE_API_KEY",
-        "GIT_MERGE_GEMINI_API_KEY",
+        "RIZZLER_OPENAI_API_KEY",
+        "RIZZLER_CLAUDE_API_KEY",
+        "RIZZLER_GEMINI_API_KEY",
         "AWS_ACCESS_KEY_ID", // For Bedrock
-        "GIT_MERGE_AI_SYSTEM_PROMPT",
-        "GIT_MERGE_AI_TIMEOUT",
+        "RIZZLER_SYSTEM_PROMPT",
+        "RIZZLER_TIMEOUT",
     ];
     
     for var in important_variables.iter() {

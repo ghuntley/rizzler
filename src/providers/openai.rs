@@ -16,26 +16,26 @@ impl OpenAIProvider {
     /// Create a new OpenAI provider
     pub fn new() -> Result<Self, AIProviderError> {
         // Get API key from environment variable
-        let api_key = env::var("GIT_MERGE_OPENAI_API_KEY")
+        let api_key = env::var("RIZZLER_OPENAI_API_KEY")
             .map_err(|_| AIProviderError::ConfigError(
-                "Missing OpenAI API key. Set GIT_MERGE_OPENAI_API_KEY environment variable".to_string()
+                "Missing OpenAI API key. Set RIZZLER_OPENAI_API_KEY environment variable".to_string()
             ))?;
         
         // Get other configuration from environment variables
-        let base_url = env::var("GIT_MERGE_OPENAI_BASE_URL").ok();
-        let org_id = env::var("GIT_MERGE_OPENAI_ORG_ID").ok();
-        let model = env::var("GIT_MERGE_OPENAI_MODEL").unwrap_or_else(|_| "gpt-4-turbo".to_string());
-        let timeout_seconds = env::var("GIT_MERGE_AI_TIMEOUT")
+        let base_url = env::var("RIZZLER_OPENAI_BASE_URL").ok();
+        let org_id = env::var("RIZZLER_OPENAI_ORG_ID").ok();
+        let model = env::var("RIZZLER_OPENAI_MODEL").unwrap_or_else(|_| "gpt-4-turbo".to_string());
+        let timeout_seconds = env::var("RIZZLER_TIMEOUT")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(60);
         
         // Get custom system prompt if provided
-        let system_prompt = env::var("GIT_MERGE_AI_SYSTEM_PROMPT").ok();
+        let system_prompt = env::var("RIZZLER_SYSTEM_PROMPT").ok();
         
         // Create additional settings map
         let mut additional_settings = HashMap::new();
-        if let Ok(max_tokens) = env::var("GIT_MERGE_OPENAI_MAX_TOKENS") {
+        if let Ok(max_tokens) = env::var("RIZZLER_OPENAI_MAX_TOKENS") {
             additional_settings.insert("max_tokens".to_string(), max_tokens);
         }
         
@@ -229,12 +229,12 @@ mod tests {
     #[test]
     fn test_openai_provider_config() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_OPENAI_MODEL", "gpt-4");
-        env::set_var("GIT_MERGE_OPENAI_BASE_URL", "https://test-api.openai.com");
-        env::set_var("GIT_MERGE_OPENAI_ORG_ID", "test-org");
-        env::set_var("GIT_MERGE_AI_SYSTEM_PROMPT", "Test system prompt");
-        env::set_var("GIT_MERGE_AI_TIMEOUT", "30");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_MODEL", "gpt-4");
+        env::set_var("RIZZLER_OPENAI_BASE_URL", "https://test-api.openai.com");
+        env::set_var("RIZZLER_OPENAI_ORG_ID", "test-org");
+        env::set_var("RIZZLER_SYSTEM_PROMPT", "Test system prompt");
+        env::set_var("RIZZLER_TIMEOUT", "30");
         
         // Create provider
         let provider = OpenAIProvider::new().unwrap();
@@ -248,18 +248,18 @@ mod tests {
         assert_eq!(provider.config().timeout_seconds, 30);
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_OPENAI_MODEL");
-        env::remove_var("GIT_MERGE_OPENAI_BASE_URL");
-        env::remove_var("GIT_MERGE_OPENAI_ORG_ID");
-        env::remove_var("GIT_MERGE_AI_SYSTEM_PROMPT");
-        env::remove_var("GIT_MERGE_AI_TIMEOUT");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_MODEL");
+        env::remove_var("RIZZLER_OPENAI_BASE_URL");
+        env::remove_var("RIZZLER_OPENAI_ORG_ID");
+        env::remove_var("RIZZLER_SYSTEM_PROMPT");
+        env::remove_var("RIZZLER_TIMEOUT");
     }
     
     #[test]
     fn test_create_system_prompt() {
         // Set the API key for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
         
         // Test default system prompt
         {
@@ -270,21 +270,21 @@ mod tests {
         
         // Test custom system prompt
         {
-            env::set_var("GIT_MERGE_AI_SYSTEM_PROMPT", "Custom system prompt");
+            env::set_var("RIZZLER_SYSTEM_PROMPT", "Custom system prompt");
             let provider = OpenAIProvider::new().unwrap();
             let system_prompt = provider.create_system_prompt();
             assert_eq!(system_prompt, "Custom system prompt");
-            env::remove_var("GIT_MERGE_AI_SYSTEM_PROMPT");
+            env::remove_var("RIZZLER_SYSTEM_PROMPT");
         }
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
     }
     
     #[test]
     fn test_create_user_prompt() {
         // Set the API key for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
         
         // Create a provider
         let provider = OpenAIProvider::new().unwrap();
@@ -304,13 +304,13 @@ mod tests {
         assert!(prompt.contains("Their content"));
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
     }
     
     #[test]
     fn test_resolve_conflict() {
         // Set the API key for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
         
         // Create a provider
         let provider = OpenAIProvider::new().unwrap();
@@ -329,14 +329,14 @@ mod tests {
         assert!(response.token_usage.is_some());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
     }
     
     proptest! {
         #[test]
         fn test_create_user_prompt_prop(our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
             // Set the API key for testing
-            env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+            env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
             
             // Create a provider
             let provider = OpenAIProvider::new().unwrap();
@@ -353,7 +353,7 @@ mod tests {
             prop_assert!(prompt.contains(&their_content));
             
             // Clean up environment
-            env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+            env::remove_var("RIZZLER_OPENAI_API_KEY");
         }
     }
 }

@@ -1,8 +1,8 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use git_merge_ai_resolver::prompt_engineering::{PromptGenerator, PromptTemplate};
-use git_merge_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler_ai_resolver::prompt_engineering::{PromptGenerator, PromptTemplate};
+use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
 use std::env;
 
 // Helper function to create a test conflict region
@@ -100,7 +100,7 @@ fn test_file_prompt_generation() {
 #[test]
 fn test_custom_system_prompt() {
     // Set a custom system prompt in the environment
-    env::set_var("GIT_MERGE_AI_SYSTEM_PROMPT", "Custom system prompt for testing");
+    env::set_var("RIZZLER_SYSTEM_PROMPT", "Custom system prompt for testing");
     
     // Create a generator with the default template
     let generator = PromptGenerator::new(PromptTemplate::Default);
@@ -112,7 +112,7 @@ fn test_custom_system_prompt() {
     assert_eq!(system_prompt, "Custom system prompt for testing");
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_AI_SYSTEM_PROMPT");
+    env::remove_var("RIZZLER_SYSTEM_PROMPT");
 }
 
 #[test]

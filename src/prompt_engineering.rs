@@ -29,7 +29,7 @@ impl PromptGenerator {
     /// Generate a system prompt for AI model instruction
     pub fn generate_system_prompt(&self) -> String {
         // Check if a custom system prompt is provided in the environment
-        if let Ok(custom_prompt) = env::var("GIT_MERGE_AI_SYSTEM_PROMPT") {
+        if let Ok(custom_prompt) = env::var("RIZZLER_SYSTEM_PROMPT") {
             return custom_prompt;
         }
         
@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn test_custom_system_prompt_from_env() {
         // Set custom prompt in environment
-        env::set_var("GIT_MERGE_AI_SYSTEM_PROMPT", "Custom prompt for testing");
+        env::set_var("RIZZLER_SYSTEM_PROMPT", "Custom prompt for testing");
         
         // Create generator and check that it uses the custom prompt
         let generator = PromptGenerator::new(PromptTemplate::Default);
@@ -420,7 +420,7 @@ mod tests {
         assert_eq!(prompt, "Custom prompt for testing");
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_SYSTEM_PROMPT");
+        env::remove_var("RIZZLER_SYSTEM_PROMPT");
     }
     
     #[test]

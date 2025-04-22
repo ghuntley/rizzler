@@ -1,6 +1,6 @@
-# Implementation Plan for git-merge-ai-resolver
+# Implementation Plan for rizzler
 
-This document outlines the incremental delivery plan for building the git-merge-ai-resolver, a Git merge driver that automatically resolves merge conflicts using AI techniques.
+This document outlines the incremental delivery plan for building the rizzler, a Git merge driver that automatically resolves merge conflicts using AI techniques.
 
 ## Phase 1: Core Infrastructure (Weeks 1-2)
 
@@ -221,15 +221,15 @@ This document outlines the incremental delivery plan for building the git-merge-
 - Enhanced the resolution engine to use file-specific strategies with fallback to default strategies
 - Added comprehensive tests for file-type specific strategy selection
 - Integrated the fallback mechanism with AIResolutionStrategy and AIFileResolutionStrategy
-- Added automatic fallback support through GIT_MERGE_AI_USE_FALLBACK environment variable
+- Added automatic fallback support through RIZZLER_USE_FALLBACK environment variable
 - Added tests to verify the fallback integration in the resolution strategies
 - Improved error handling in the AIResolutionStrategy with graceful fallback to other providers
 - Implemented retry mechanism with exponential backoff for transient errors
-- Added configurable retry settings via environment variables (GIT_MERGE_AI_MAX_RETRIES, GIT_MERGE_AI_INITIAL_BACKOFF_MS, etc.)
+- Added configurable retry settings via environment variables (RIZZLER_MAX_RETRIES, RIZZLER_INITIAL_BACKOFF_MS, etc.)
 - Integrated retry mechanism with all AI providers through a RetryableProvider wrapper
 - Added jitter to retry backoff times to prevent thundering herd problems
 - Created comprehensive tests for retry behavior in various scenarios
-- Made retry mechanism opt-out (enabled by default) with GIT_MERGE_AI_USE_RETRIES environment variable
+- Made retry mechanism opt-out (enabled by default) with RIZZLER_USE_RETRIES environment variable
 
 ## Phase 5: Testing, Documentation & Release (Weeks 11-12)
 

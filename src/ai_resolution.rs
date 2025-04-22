@@ -22,16 +22,16 @@ impl AIResolutionStrategy {
     /// Create a new AI resolution strategy with the default provider
     pub fn new() -> Result<Self, ResolutionError> {
         // Use the environment variable to determine the provider, defaulting to OpenAI
-        let provider_name = env::var("GIT_MERGE_AI_PROVIDER").unwrap_or_else(|_| "openai".to_string());
+        let provider_name = env::var("RIZZLER_PROVIDER").unwrap_or_else(|_| "openai".to_string());
         
         // Check if fallback is enabled
-        let use_fallback = env::var("GIT_MERGE_AI_USE_FALLBACK")
+        let use_fallback = env::var("RIZZLER_USE_FALLBACK")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(false);
         
         if use_fallback {
             // Get the fallback order, defaulting to all providers
-            let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+            let fallback_order = env::var("RIZZLER_FALLBACK_ORDER")
                 .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
             
             Self::with_fallback(&fallback_order)
@@ -43,12 +43,12 @@ impl AIResolutionStrategy {
     /// Create a new AI resolution strategy with a specific provider
     pub fn with_provider(provider_name: &str) -> Result<Self, ResolutionError> {
         // Get retry configuration setting from environment
-        let use_retries = env::var("GIT_MERGE_AI_USE_RETRIES")
+        let use_retries = env::var("RIZZLER_USE_RETRIES")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(true); // Enable retries by default
         
         // Get cache configuration setting from environment
-        let use_cache = env::var("GIT_MERGE_AI_USE_CACHE")
+        let use_cache = env::var("RIZZLER_USE_CACHE")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(true); // Enable cache by default
             
@@ -162,13 +162,13 @@ impl ResolutionStrategy for AIResolutionStrategy {
             Ok(response) => Ok(response.content),
             Err(err) => {
                 // Check if we should try to use the fallback strategy
-                if let Ok(fallback_enabled) = env::var("GIT_MERGE_AI_USE_FALLBACK") {
+                if let Ok(fallback_enabled) = env::var("RIZZLER_USE_FALLBACK") {
                     if fallback_enabled.to_lowercase() == "true" || fallback_enabled == "1" {
                         info!("Primary provider failed: {}", err);
                         info!("Falling back to other providers in the fallback chain");
                         
                         // Get the fallback order from environment
-                        let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+                        let fallback_order = env::var("RIZZLER_FALLBACK_ORDER")
                             .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
                         
                         // Create a fallback strategy
@@ -207,16 +207,16 @@ impl AIFileResolutionStrategy {
     /// Create a new AI file resolution strategy with the default provider
     pub fn new() -> Result<Self, ResolutionError> {
         // Use the environment variable to determine the provider, defaulting to OpenAI
-        let provider_name = env::var("GIT_MERGE_AI_PROVIDER").unwrap_or_else(|_| "openai".to_string());
+        let provider_name = env::var("RIZZLER_PROVIDER").unwrap_or_else(|_| "openai".to_string());
         
         // Check if fallback is enabled
-        let use_fallback = env::var("GIT_MERGE_AI_USE_FALLBACK")
+        let use_fallback = env::var("RIZZLER_USE_FALLBACK")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(false);
         
         if use_fallback {
             // Get the fallback order, defaulting to all providers
-            let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+            let fallback_order = env::var("RIZZLER_FALLBACK_ORDER")
                 .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
             
             Self::with_fallback(&fallback_order)
@@ -228,12 +228,12 @@ impl AIFileResolutionStrategy {
     /// Create a new AI file resolution strategy with a specific provider
     pub fn with_provider(provider_name: &str) -> Result<Self, ResolutionError> {
         // Get retry configuration setting from environment
-        let use_retries = env::var("GIT_MERGE_AI_USE_RETRIES")
+        let use_retries = env::var("RIZZLER_USE_RETRIES")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(true); // Enable retries by default
         
         // Get cache configuration setting from environment
-        let use_cache = env::var("GIT_MERGE_AI_USE_CACHE")
+        let use_cache = env::var("RIZZLER_USE_CACHE")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(true); // Enable cache by default
             
@@ -322,13 +322,13 @@ impl AIFileResolutionStrategy {
             Ok(response) => Ok(response.content),
             Err(err) => {
                 // Check if we should try to use the fallback strategy
-                if let Ok(fallback_enabled) = env::var("GIT_MERGE_AI_USE_FALLBACK") {
+                if let Ok(fallback_enabled) = env::var("RIZZLER_USE_FALLBACK") {
                     if fallback_enabled.to_lowercase() == "true" || fallback_enabled == "1" {
                         info!("Primary provider failed: {}", err);
                         info!("Falling back to other providers in the fallback chain");
                         
                         // Get the fallback order from environment
-                        let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+                        let fallback_order = env::var("RIZZLER_FALLBACK_ORDER")
                             .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
                         
                         // Create a fallback strategy
@@ -402,24 +402,24 @@ mod tests {
     
     // Helper function to set up environment for retry testing
     fn setup_retry_test() {
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_AI_USE_RETRIES", "true");
-        env::set_var("GIT_MERGE_AI_MAX_RETRIES", "2"); // Use a smaller value for faster tests
-        env::set_var("GIT_MERGE_AI_INITIAL_BACKOFF_MS", "1"); // Use a small value for faster tests
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_USE_RETRIES", "true");
+        env::set_var("RIZZLER_MAX_RETRIES", "2"); // Use a smaller value for faster tests
+        env::set_var("RIZZLER_INITIAL_BACKOFF_MS", "1"); // Use a small value for faster tests
     }
     
     // Helper function to clean up environment after retry testing
     fn cleanup_retry_test() {
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_AI_USE_RETRIES");
-        env::remove_var("GIT_MERGE_AI_MAX_RETRIES");
-        env::remove_var("GIT_MERGE_AI_INITIAL_BACKOFF_MS");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_USE_RETRIES");
+        env::remove_var("RIZZLER_MAX_RETRIES");
+        env::remove_var("RIZZLER_INITIAL_BACKOFF_MS");
     }
     
     #[test]
     fn test_ai_resolution_strategy_initialization_openai() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
         
         // Test initialization with default provider
         let strategy = AIResolutionStrategy::new();
@@ -434,14 +434,14 @@ mod tests {
         assert!(strategy.is_err());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
     }
     
     #[test]
     fn test_ai_resolution_strategy_initialization_claude() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_AI_PROVIDER", "claude");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_PROVIDER", "claude");
         
         // Test initialization with default provider (now claude)
         let strategy = AIResolutionStrategy::new();
@@ -452,15 +452,15 @@ mod tests {
         assert!(strategy.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-        env::remove_var("GIT_MERGE_AI_PROVIDER");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_PROVIDER");
     }
     
     #[test]
     fn test_ai_resolution_strategy_initialization_gemini() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_AI_PROVIDER", "gemini");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_PROVIDER", "gemini");
         
         // Test initialization with default provider (now gemini)
         let strategy = AIResolutionStrategy::new();
@@ -471,14 +471,14 @@ mod tests {
         assert!(strategy.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
-        env::remove_var("GIT_MERGE_AI_PROVIDER");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_PROVIDER");
     }
     
     #[test]
     fn test_ai_resolution_strategy_conflict_handling_openai() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
         
         // Create a test conflict
         let conflict = create_test_conflict("Our content\n", "Their content\n");
@@ -494,13 +494,13 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
     }
     
     #[test]
     fn test_ai_resolution_strategy_conflict_handling_claude() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
         
         // Create a test conflict
         let conflict = create_test_conflict("Our content\n", "Their content\n");
@@ -516,13 +516,13 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
     }
     
     #[test]
     fn test_ai_resolution_strategy_conflict_handling_gemini() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
         
         // Create a test conflict
         let conflict = create_test_conflict("Our content\n", "Their content\n");
@@ -538,13 +538,13 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
     }
     
     #[test]
     fn test_ai_file_resolution_strategy_openai() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
         
         // Create a test conflict
         let conflict = create_test_conflict("Our content\n", "Their content\n");
@@ -558,13 +558,13 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
     }
     
     #[test]
     fn test_ai_file_resolution_strategy_claude() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
         
         // Create a test conflict
         let conflict = create_test_conflict("Our content\n", "Their content\n");
@@ -578,13 +578,13 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
     }
     
     #[test]
     fn test_ai_file_resolution_strategy_gemini() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
         
         // Create a test conflict
         let conflict = create_test_conflict("Our content\n", "Their content\n");
@@ -598,7 +598,7 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
     }
     
     #[test]
@@ -607,7 +607,7 @@ mod tests {
         env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
         env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
         env::set_var("AWS_REGION", "us-east-1");
-        env::set_var("GIT_MERGE_AI_PROVIDER", "bedrock");
+        env::set_var("RIZZLER_PROVIDER", "bedrock");
         
         // Test initialization with default provider (now bedrock)
         let strategy = AIResolutionStrategy::new();
@@ -621,7 +621,7 @@ mod tests {
         env::remove_var("AWS_ACCESS_KEY_ID");
         env::remove_var("AWS_SECRET_ACCESS_KEY");
         env::remove_var("AWS_REGION");
-        env::remove_var("GIT_MERGE_AI_PROVIDER");
+        env::remove_var("RIZZLER_PROVIDER");
     }
     
     #[test]
@@ -716,8 +716,8 @@ mod tests {
     #[test]
     fn test_retry_disabled() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_AI_USE_RETRIES", "false"); // Explicitly disable retries
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_USE_RETRIES", "false"); // Explicitly disable retries
         
         // Create a test conflict
         let conflict = create_test_conflict("Our content\n", "Their content\n");
@@ -730,7 +730,7 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_AI_USE_RETRIES");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_USE_RETRIES");
     }
 }

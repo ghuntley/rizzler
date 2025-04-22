@@ -2,7 +2,7 @@
 
 ## Overview
 
-The git-merge-ai-resolver will use a comprehensive testing approach with an emphasis on property-based testing to ensure robustness and correctness. This specification outlines the testing methodologies, tools, and strategies for the project.
+The rizzler will use a comprehensive testing approach with an emphasis on property-based testing to ensure robustness and correctness. This specification outlines the testing methodologies, tools, and strategies for the project.
 
 ## Property-Based Testing
 

@@ -108,21 +108,21 @@ max_file_size = "10MB"
 
 # Advanced: Retry Configuration
 # Environment variables:
-# - RIZZLER_AI_USE_RETRIES - Enable/disable retries (true/false, default: true)
-# - RIZZLER_AI_MAX_RETRIES - Maximum retry attempts (default: 3)
-# - RIZZLER_AI_INITIAL_BACKOFF_MS - Initial backoff time in ms (default: 1000)
-# - RIZZLER_AI_MAX_BACKOFF_MS - Maximum backoff time in ms (default: 30000)
-# - RIZZLER_AI_BACKOFF_MULTIPLIER - Backoff multiplier (default: 2.0)
-# - RIZZLER_AI_JITTER_FACTOR - Jitter factor for randomness (default: 0.1)
+# - RIZZLER_USE_RETRIES - Enable/disable retries (true/false, default: true)
+# - RIZZLER_MAX_RETRIES - Maximum retry attempts (default: 3)
+# - RIZZLER_INITIAL_BACKOFF_MS - Initial backoff time in ms (default: 1000)
+# - RIZZLER_MAX_BACKOFF_MS - Maximum backoff time in ms (default: 30000)
+# - RIZZLER_BACKOFF_MULTIPLIER - Backoff multiplier (default: 2.0)
+# - RIZZLER_JITTER_FACTOR - Jitter factor for randomness (default: 0.1)
 
 # Advanced: AI Fallback Configuration
 # Environment variables:
-# - RIZZLER_AI_USE_FALLBACK - Enable/disable fallback (true/false)
-# - RIZZLER_AI_FALLBACK_ORDER - Comma-separated list of providers to try in order
+# - RIZZLER_USE_FALLBACK - Enable/disable fallback (true/false)
+# - RIZZLER_FALLBACK_ORDER - Comma-separated list of providers to try in order
 #   e.g., "openai,claude,gemini,bedrock"
 
 # Advanced: Caching Configuration
 # Environment variables:
-# - RIZZLER_AI_USE_CACHE - Enable/disable caching (true/false, default: true)
+# - RIZZLER_USE_CACHE - Enable/disable caching (true/false, default: true)
 # - RIZZLER_CACHE_DIR - Directory to store cache files (default: system temp dir)
 # - RIZZLER_CACHE_TTL_HOURS - Time-to-live for cache entries in hours (default: 24) 

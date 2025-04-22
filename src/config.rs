@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::io::Write;
 use tracing::{debug, info, warn};
 
-/// Configuration for the git-merge-ai-resolver
+/// Configuration for the rizzler
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     /// AI provider configuration
@@ -164,7 +164,7 @@ impl Default for Config {
 }
 
 /// Constants for repository configuration
-const REPOSITORY_CONFIG_FILENAME: &str = ".git-merge-ai-resolver";
+const REPOSITORY_CONFIG_FILENAME: &str = ".rizzler";
 
 impl Config {
     /// Load configuration from environment variables and Git config
@@ -348,43 +348,43 @@ impl Config {
     /// Load configuration from environment variables
     pub fn load_from_env(&mut self) {
         // AI provider configuration
-        if let Ok(provider) = env::var("GIT_MERGE_AI_PROVIDER_DEFAULT") {
+        if let Ok(provider) = env::var("RIZZLER_PROVIDER_DEFAULT") {
             self.ai_provider.default_provider = Some(provider);
         }
         
-        if let Ok(model) = env::var("GIT_MERGE_AI_MODEL") {
+        if let Ok(model) = env::var("RIZZLER_MODEL") {
             self.ai_provider.default_model = Some(model);
         }
         
-        if let Ok(prompt) = env::var("GIT_MERGE_AI_SYSTEM_PROMPT") {
+        if let Ok(prompt) = env::var("RIZZLER_SYSTEM_PROMPT") {
             self.ai_provider.system_prompt = Some(prompt);
         }
         
-        if let Ok(timeout) = env::var("GIT_MERGE_AI_TIMEOUT") {
+        if let Ok(timeout) = env::var("RIZZLER_TIMEOUT") {
             if let Ok(timeout) = timeout.parse::<u64>() {
                 self.ai_provider.timeout_seconds = timeout;
             }
         }
         
         // Logging configuration
-        if let Ok(level) = env::var("GIT_MERGE_LOG_LEVEL") {
+        if let Ok(level) = env::var("RIZZLER_LOG_LEVEL") {
             self.logging.level = level;
         }
         
-        if let Ok(file) = env::var("GIT_MERGE_LOG_FILE") {
+        if let Ok(file) = env::var("RIZZLER_LOG_FILE") {
             self.logging.file = Some(file);
         }
         
         // Resolution configuration
-        if let Ok(strategy) = env::var("GIT_MERGE_DEFAULT_STRATEGY") {
+        if let Ok(strategy) = env::var("RIZZLER_DEFAULT_STRATEGY") {
             self.resolution.default_strategy = strategy;
         }
         
         // Load file extension strategies from environment variables
-        // Format: GIT_MERGE_EXTENSION_STRATEGY_<extension>=<strategy>
+        // Format: RIZZLER_EXTENSION_STRATEGY_<extension>=<strategy>
         for (key, value) in env::vars() {
-            if key.starts_with("GIT_MERGE_EXTENSION_STRATEGY_") {
-                if let Some(extension) = key.strip_prefix("GIT_MERGE_EXTENSION_STRATEGY_") {
+            if key.starts_with("RIZZLER_EXTENSION_STRATEGY_") {
+                if let Some(extension) = key.strip_prefix("RIZZLER_EXTENSION_STRATEGY_") {
                     let strategy = value.clone(); // Clone to avoid moved value error
                     self.resolution.extension_strategies.insert(extension.to_string(), strategy.clone());
                     debug!("Added extension strategy mapping: {} -> {}", extension, strategy);
@@ -440,10 +440,10 @@ impl Config {
     
     /// Load configuration from repository-specific file
     /// 
-    /// This method loads configuration from a .git-merge-ai-resolver file in the current directory,
+    /// This method loads configuration from a .rizzler file in the current directory,
     /// which contains repository-specific settings in TOML format.
     pub fn load_from_repository_file(&mut self) -> Result<(), ConfigError> {
-        // Look for .git-merge-ai-resolver in the current directory
+        // Look for .rizzler in the current directory
         let config_path = Path::new(REPOSITORY_CONFIG_FILENAME);
         
         // Read the file content
@@ -489,7 +489,7 @@ impl Config {
     
     /// Save configuration to repository-specific file
     /// 
-    /// This method saves the current configuration to a .git-merge-ai-resolver file in the current directory,
+    /// This method saves the current configuration to a .rizzler file in the current directory,
     /// which contains repository-specific settings in TOML format.
     pub fn save_to_repository(&self) -> Result<(), ConfigError> {
         // Convert to TOML
@@ -646,9 +646,9 @@ mod tests {
     #[test]
     fn test_config_load_from_env() {
         // Set environment variables
-        env::set_var("GIT_MERGE_AI_PROVIDER_DEFAULT", "openai");
-        env::set_var("GIT_MERGE_AI_MODEL", "gpt-4");
-        env::set_var("GIT_MERGE_LOG_LEVEL", "debug");
+        env::set_var("RIZZLER_PROVIDER_DEFAULT", "openai");
+        env::set_var("RIZZLER_MODEL", "gpt-4");
+        env::set_var("RIZZLER_LOG_LEVEL", "debug");
         
         let mut config = Config::default();
         config.load_from_env();
@@ -658,9 +658,9 @@ mod tests {
         assert_eq!(config.logging.level, "debug".to_string());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_PROVIDER_DEFAULT");
-        env::remove_var("GIT_MERGE_AI_MODEL");
-        env::remove_var("GIT_MERGE_LOG_LEVEL");
+        env::remove_var("RIZZLER_PROVIDER_DEFAULT");
+        env::remove_var("RIZZLER_MODEL");
+        env::remove_var("RIZZLER_LOG_LEVEL");
     }
     
     #[test]
@@ -673,9 +673,9 @@ mod tests {
     #[test]
     fn test_file_extension_strategies() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_EXTENSION_STRATEGY_js", "ai");
-        env::set_var("GIT_MERGE_EXTENSION_STRATEGY_md", "simple");
-        env::set_var("GIT_MERGE_EXTENSION_STRATEGY_rs", "ai-fallback");
+        env::set_var("RIZZLER_EXTENSION_STRATEGY_js", "ai");
+        env::set_var("RIZZLER_EXTENSION_STRATEGY_md", "simple");
+        env::set_var("RIZZLER_EXTENSION_STRATEGY_rs", "ai-fallback");
         
         let mut config = Config::default();
         config.load_from_env();
@@ -686,9 +686,9 @@ mod tests {
         assert_eq!(config.resolution.extension_strategies.get("rs"), Some(&"ai-fallback".to_string()));
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_EXTENSION_STRATEGY_js");
-        env::remove_var("GIT_MERGE_EXTENSION_STRATEGY_md");
-        env::remove_var("GIT_MERGE_EXTENSION_STRATEGY_rs");
+        env::remove_var("RIZZLER_EXTENSION_STRATEGY_js");
+        env::remove_var("RIZZLER_EXTENSION_STRATEGY_md");
+        env::remove_var("RIZZLER_EXTENSION_STRATEGY_rs");
     }
     
     #[test]
@@ -776,7 +776,7 @@ mod tests {
         file_config.resolution.default_strategy = "ai-windowing".to_string();
         
         // Set environment variables that should override file settings
-        env::set_var("GIT_MERGE_AI_PROVIDER_DEFAULT", "gemini");
+        env::set_var("RIZZLER_PROVIDER_DEFAULT", "gemini");
         
         // Create a merged configuration that simulates the combination of repository config and environment variables
         let mut merged_config = file_config.clone();
@@ -790,7 +790,7 @@ mod tests {
         assert_eq!(merged_config.resolution.default_strategy, "ai-windowing");
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_PROVIDER_DEFAULT");
+        env::remove_var("RIZZLER_PROVIDER_DEFAULT");
     }
     
     #[test]

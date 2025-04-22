@@ -38,7 +38,7 @@ impl From<io::Error> for SetupError {
     }
 }
 
-/// Configure git-merge-ai-resolver as a Git merge driver
+/// Configure rizzler as a Git merge driver
 ///
 /// # Arguments
 ///
@@ -83,7 +83,7 @@ pub fn setup_git_integration(
     }
     
     // Configure git merge driver
-    configure_git_merge_driver(global, dry_run)?;
+    configure_rizzler_driver(global, dry_run)?;
     
     // Configure gitattributes
     configure_gitattributes(global, local, extensions, dry_run)?;
@@ -92,8 +92,8 @@ pub fn setup_git_integration(
 }
 
 /// Configure Git merge driver in .gitconfig
-fn configure_git_merge_driver(global: bool, dry_run: bool) -> Result<(), SetupError> {
-    // Extract the path to the git-merge-ai-resolver binary
+fn configure_rizzler_driver(global: bool, dry_run: bool) -> Result<(), SetupError> {
+    // Extract the path to the rizzler binary
     let binary_path = std::env::current_exe()?
         .to_string_lossy()
         .to_string();
@@ -102,13 +102,13 @@ fn configure_git_merge_driver(global: bool, dry_run: bool) -> Result<(), SetupEr
         vec![
             "config".to_string(),
             "--global".to_string(),
-            "merge.git-merge-ai-resolver.name".to_string(),
+            "merge.rizzler.name".to_string(),
             "AI-powered Git merge conflict resolver".to_string(),
         ]
     } else {
         vec![
             "config".to_string(),
-            "merge.git-merge-ai-resolver.name".to_string(),
+            "merge.rizzler.name".to_string(),
             "AI-powered Git merge conflict resolver".to_string(),
         ]
     };
@@ -130,13 +130,13 @@ fn configure_git_merge_driver(global: bool, dry_run: bool) -> Result<(), SetupEr
         vec![
             "config".to_string(),
             "--global".to_string(),
-            "merge.git-merge-ai-resolver.driver".to_string(),
+            "merge.rizzler.driver".to_string(),
             format!("{} %O %A %B %P", binary_path),
         ]
     } else {
         vec![
             "config".to_string(),
-            "merge.git-merge-ai-resolver.driver".to_string(),
+            "merge.rizzler.driver".to_string(),
             format!("{} %O %A %B %P", binary_path),
         ]
     };
@@ -158,13 +158,13 @@ fn configure_git_merge_driver(global: bool, dry_run: bool) -> Result<(), SetupEr
         vec![
             "config".to_string(),
             "--global".to_string(),
-            "merge.git-merge-ai-resolver.trustExitCode".to_string(),
+            "merge.rizzler.trustExitCode".to_string(),
             "true".to_string(),
         ]
     } else {
         vec![
             "config".to_string(),
-            "merge.git-merge-ai-resolver.trustExitCode".to_string(),
+            "merge.rizzler.trustExitCode".to_string(),
             "true".to_string(),
         ]
     };
@@ -214,7 +214,7 @@ fn configure_gitattributes(
     if dry_run {
         info!("Would update gitattributes at: {}", gitattributes_path.display());
         for ext in extensions {
-            info!("Would add: *.{} merge=git-merge-ai-resolver", ext);
+            info!("Would add: *.{} merge=rizzler", ext);
         }
         return Ok(());
     }
@@ -237,19 +237,19 @@ fn configure_gitattributes(
     if !file_exists {
         writeln!(
             file,
-            "# gitattributes configuration for git-merge-ai-resolver"
+            "# gitattributes configuration for rizzler"
         )?;
-        writeln!(file, "# Generated automatically by git-merge-ai-resolver setup")?;
+        writeln!(file, "# Generated automatically by rizzler setup")?;
         writeln!(file)?;
     } else {
         // Add a blank line if the file exists
         writeln!(file)?;
-        writeln!(file, "# Additional configuration from git-merge-ai-resolver")?;
+        writeln!(file, "# Additional configuration from rizzler")?;
     }
     
     // Write the configuration for each extension
     for ext in extensions {
-        writeln!(file, "*.{} merge=git-merge-ai-resolver", ext)?;
+        writeln!(file, "*.{} merge=rizzler", ext)?;
     }
     
     Ok(())

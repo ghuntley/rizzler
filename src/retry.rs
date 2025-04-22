@@ -54,31 +54,31 @@ impl Default for RetryConfig {
         };
         
         // Override from environment variables if available
-        if let Ok(max_retries) = env::var("GIT_MERGE_AI_MAX_RETRIES") {
+        if let Ok(max_retries) = env::var("RIZZLER_MAX_RETRIES") {
             if let Ok(value) = max_retries.parse::<u32>() {
                 config.max_retries = value;
             }
         }
         
-        if let Ok(initial_backoff) = env::var("GIT_MERGE_AI_INITIAL_BACKOFF_MS") {
+        if let Ok(initial_backoff) = env::var("RIZZLER_INITIAL_BACKOFF_MS") {
             if let Ok(value) = initial_backoff.parse::<u64>() {
                 config.initial_backoff_ms = value;
             }
         }
         
-        if let Ok(max_backoff) = env::var("GIT_MERGE_AI_MAX_BACKOFF_MS") {
+        if let Ok(max_backoff) = env::var("RIZZLER_MAX_BACKOFF_MS") {
             if let Ok(value) = max_backoff.parse::<u64>() {
                 config.max_backoff_ms = value;
             }
         }
         
-        if let Ok(multiplier) = env::var("GIT_MERGE_AI_BACKOFF_MULTIPLIER") {
+        if let Ok(multiplier) = env::var("RIZZLER_BACKOFF_MULTIPLIER") {
             if let Ok(value) = multiplier.parse::<f64>() {
                 config.backoff_multiplier = value;
             }
         }
         
-        if let Ok(jitter) = env::var("GIT_MERGE_AI_JITTER_FACTOR") {
+        if let Ok(jitter) = env::var("RIZZLER_JITTER_FACTOR") {
             if let Ok(value) = jitter.parse::<f64>() {
                 config.jitter_factor = value;
             }
@@ -422,11 +422,11 @@ mod tests {
     #[test]
     fn test_retry_config_from_env() {
         // Set environment variables
-        env::set_var("GIT_MERGE_AI_MAX_RETRIES", "5");
-        env::set_var("GIT_MERGE_AI_INITIAL_BACKOFF_MS", "500");
-        env::set_var("GIT_MERGE_AI_MAX_BACKOFF_MS", "10000");
-        env::set_var("GIT_MERGE_AI_BACKOFF_MULTIPLIER", "1.5");
-        env::set_var("GIT_MERGE_AI_JITTER_FACTOR", "0.2");
+        env::set_var("RIZZLER_MAX_RETRIES", "5");
+        env::set_var("RIZZLER_INITIAL_BACKOFF_MS", "500");
+        env::set_var("RIZZLER_MAX_BACKOFF_MS", "10000");
+        env::set_var("RIZZLER_BACKOFF_MULTIPLIER", "1.5");
+        env::set_var("RIZZLER_JITTER_FACTOR", "0.2");
         
         let config = RetryConfig::default();
         
@@ -437,11 +437,11 @@ mod tests {
         assert_eq!(config.jitter_factor, 0.2);
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_MAX_RETRIES");
-        env::remove_var("GIT_MERGE_AI_INITIAL_BACKOFF_MS");
-        env::remove_var("GIT_MERGE_AI_MAX_BACKOFF_MS");
-        env::remove_var("GIT_MERGE_AI_BACKOFF_MULTIPLIER");
-        env::remove_var("GIT_MERGE_AI_JITTER_FACTOR");
+        env::remove_var("RIZZLER_MAX_RETRIES");
+        env::remove_var("RIZZLER_INITIAL_BACKOFF_MS");
+        env::remove_var("RIZZLER_MAX_BACKOFF_MS");
+        env::remove_var("RIZZLER_BACKOFF_MULTIPLIER");
+        env::remove_var("RIZZLER_JITTER_FACTOR");
     }
     
     #[test]

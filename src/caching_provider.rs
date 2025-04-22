@@ -22,12 +22,12 @@ impl CachingAIProvider {
     /// Create a new caching provider wrapping the given provider
     pub fn new(provider: Box<dyn AIProvider>) -> Self {
         // Check if cache is enabled via environment variable
-        let cache_enabled = env::var("GIT_MERGE_AI_USE_CACHE")
+        let cache_enabled = env::var("RIZZLER_USE_CACHE")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(true); // Enable cache by default
             
         // Get cache TTL from environment variable, default to 1 hour
-        let cache_ttl_secs = env::var("GIT_MERGE_AI_CACHE_TTL_SECS")
+        let cache_ttl_secs = env::var("RIZZLER_CACHE_TTL_SECS")
             .map(|v| v.parse::<u64>().unwrap_or(3600))
             .unwrap_or(3600);
         
@@ -203,7 +203,7 @@ mod tests {
     #[test]
     fn test_caching_provider_basics() {
         // Set environment variable to enable caching
-        env::set_var("GIT_MERGE_AI_USE_CACHE", "true");
+        env::set_var("RIZZLER_USE_CACHE", "true");
         
         // Create a mock provider that returns a fixed response
         let mock = Box::new(MockAIProvider::new("mock", "Resolved content\n"));
@@ -215,13 +215,13 @@ mod tests {
         assert!(provider.is_available());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_USE_CACHE");
+        env::remove_var("RIZZLER_USE_CACHE");
     }
     
     #[test]
     fn test_caching_provider_conflict_resolution() {
         // Set environment variable to enable caching
-        env::set_var("GIT_MERGE_AI_USE_CACHE", "true");
+        env::set_var("RIZZLER_USE_CACHE", "true");
         
         // Create a mock provider that returns a fixed response
         let mock = Box::new(MockAIProvider::new("mock", "Resolved content\n"));
@@ -244,13 +244,13 @@ mod tests {
         assert_eq!(response2.unwrap().content, "Resolved content\n");
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_USE_CACHE");
+        env::remove_var("RIZZLER_USE_CACHE");
     }
     
     #[test]
     fn test_caching_provider_file_resolution() {
         // Set environment variable to enable caching
-        env::set_var("GIT_MERGE_AI_USE_CACHE", "true");
+        env::set_var("RIZZLER_USE_CACHE", "true");
         
         // Create a mock provider that returns a fixed response
         let mock = Box::new(MockAIProvider::new("mock", "Resolved file content\n"));
@@ -273,13 +273,13 @@ mod tests {
         assert_eq!(response2.unwrap().content, "Resolved file content\n");
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_USE_CACHE");
+        env::remove_var("RIZZLER_USE_CACHE");
     }
     
     #[test]
     fn test_caching_provider_disabled() {
         // Set environment variable to disable caching
-        env::set_var("GIT_MERGE_AI_USE_CACHE", "false");
+        env::set_var("RIZZLER_USE_CACHE", "false");
         
         // Create a mock provider that returns a fixed response
         let mock = Box::new(MockAIProvider::new("mock", "Resolved content\n"));
@@ -301,6 +301,6 @@ mod tests {
         assert!(response2.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_USE_CACHE");
+        env::remove_var("RIZZLER_USE_CACHE");
     }
 }

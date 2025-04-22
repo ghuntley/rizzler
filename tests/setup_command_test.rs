@@ -51,13 +51,13 @@ fn test_setup_command_local() {
     // Create a temporary Git repository
     let temp_dir = create_temp_git_repo().expect("Failed to create temporary Git repository");
     
-    // Path to the git-merge-ai-resolver binary
+    // Path to the rizzler binary
     // In a real test, you'd use the actual binary path
     let binary_path = env::current_exe()
         .expect("Failed to get current executable path")
         .parent()
         .expect("Failed to get parent directory")
-        .join("git-merge-ai-resolver");
+        .join("rizzler");
     
     // Run setup command
     let status = Command::new(&binary_path)
@@ -70,16 +70,16 @@ fn test_setup_command_local() {
     
     // Check if .git/config was updated correctly
     let git_config_path = temp_dir.path().join(".git/config");
-    let contains_merge_driver = file_contains(&git_config_path, "[merge \"git-merge-ai-resolver\"]").unwrap();
+    let contains_merge_driver = file_contains(&git_config_path, "[merge \"rizzler\"]").unwrap();
     assert!(contains_merge_driver, ".git/config does not contain merge driver configuration");
     
     // Check if .gitattributes was created and contains file extensions
     let gitattributes_path = temp_dir.path().join(".gitattributes");
     assert!(gitattributes_path.exists(), ".gitattributes file was not created");
     
-    let contains_js = file_contains(&gitattributes_path, "*.js merge=git-merge-ai-resolver").unwrap();
-    let contains_py = file_contains(&gitattributes_path, "*.py merge=git-merge-ai-resolver").unwrap();
-    let contains_rs = file_contains(&gitattributes_path, "*.rs merge=git-merge-ai-resolver").unwrap();
+    let contains_js = file_contains(&gitattributes_path, "*.js merge=rizzler").unwrap();
+    let contains_py = file_contains(&gitattributes_path, "*.py merge=rizzler").unwrap();
+    let contains_rs = file_contains(&gitattributes_path, "*.rs merge=rizzler").unwrap();
     
     assert!(contains_js, ".gitattributes does not contain JS configuration");
     assert!(contains_py, ".gitattributes does not contain PY configuration");
@@ -96,12 +96,12 @@ fn test_setup_command_global() {
     // Create a temporary directory (not a Git repo, just for executing the command)
     let temp_dir = tempfile::tempdir().expect("Failed to create temporary directory");
     
-    // Path to the git-merge-ai-resolver binary
+    // Path to the rizzler binary
     let binary_path = env::current_exe()
         .expect("Failed to get current executable path")
         .parent()
         .expect("Failed to get parent directory")
-        .join("git-merge-ai-resolver");
+        .join("rizzler");
     
     // Run setup command with --dry-run to avoid actually modifying global config
     // Note: --dry-run would need to be implemented in the actual command

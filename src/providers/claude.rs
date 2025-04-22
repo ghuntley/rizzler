@@ -16,28 +16,28 @@ impl ClaudeProvider {
     /// Create a new Claude provider
     pub fn new() -> Result<Self, AIProviderError> {
         // Get API key from environment variable
-        let api_key = env::var("GIT_MERGE_CLAUDE_API_KEY")
+        let api_key = env::var("RIZZLER_CLAUDE_API_KEY")
             .map_err(|_| AIProviderError::ConfigError(
-                "Missing Claude API key. Set GIT_MERGE_CLAUDE_API_KEY environment variable".to_string()
+                "Missing Claude API key. Set RIZZLER_CLAUDE_API_KEY environment variable".to_string()
             ))?;
         
         // Get other configuration from environment variables
-        let base_url = env::var("GIT_MERGE_CLAUDE_BASE_URL").ok();
-        let model = env::var("GIT_MERGE_CLAUDE_MODEL").unwrap_or_else(|_| "claude-3-opus-20240229".to_string());
-        let timeout_seconds = env::var("GIT_MERGE_AI_TIMEOUT")
+        let base_url = env::var("RIZZLER_CLAUDE_BASE_URL").ok();
+        let model = env::var("RIZZLER_CLAUDE_MODEL").unwrap_or_else(|_| "claude-3-opus-20240229".to_string());
+        let timeout_seconds = env::var("RIZZLER_TIMEOUT")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(60);
         
         // Get custom system prompt if provided
-        let system_prompt = env::var("GIT_MERGE_AI_SYSTEM_PROMPT").ok();
+        let system_prompt = env::var("RIZZLER_SYSTEM_PROMPT").ok();
         
         // Create additional settings map
         let mut additional_settings = HashMap::new();
-        if let Ok(max_tokens) = env::var("GIT_MERGE_CLAUDE_MAX_TOKENS") {
+        if let Ok(max_tokens) = env::var("RIZZLER_CLAUDE_MAX_TOKENS") {
             additional_settings.insert("max_tokens".to_string(), max_tokens);
         }
-        if let Ok(temperature) = env::var("GIT_MERGE_CLAUDE_TEMPERATURE") {
+        if let Ok(temperature) = env::var("RIZZLER_CLAUDE_TEMPERATURE") {
             additional_settings.insert("temperature".to_string(), temperature);
         }
         
@@ -234,11 +234,11 @@ mod tests {
     #[test]
     fn test_claude_provider_config() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_CLAUDE_MODEL", "claude-3-sonnet-20240229");
-        env::set_var("GIT_MERGE_CLAUDE_BASE_URL", "https://test-api.anthropic.com");
-        env::set_var("GIT_MERGE_AI_SYSTEM_PROMPT", "Test system prompt");
-        env::set_var("GIT_MERGE_AI_TIMEOUT", "45");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_MODEL", "claude-3-sonnet-20240229");
+        env::set_var("RIZZLER_CLAUDE_BASE_URL", "https://test-api.anthropic.com");
+        env::set_var("RIZZLER_SYSTEM_PROMPT", "Test system prompt");
+        env::set_var("RIZZLER_TIMEOUT", "45");
         
         // Create provider
         let provider = ClaudeProvider::new().unwrap();
@@ -251,17 +251,17 @@ mod tests {
         assert_eq!(provider.config().timeout_seconds, 45);
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-        env::remove_var("GIT_MERGE_CLAUDE_MODEL");
-        env::remove_var("GIT_MERGE_CLAUDE_BASE_URL");
-        env::remove_var("GIT_MERGE_AI_SYSTEM_PROMPT");
-        env::remove_var("GIT_MERGE_AI_TIMEOUT");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_MODEL");
+        env::remove_var("RIZZLER_CLAUDE_BASE_URL");
+        env::remove_var("RIZZLER_SYSTEM_PROMPT");
+        env::remove_var("RIZZLER_TIMEOUT");
     }
     
     #[test]
     fn test_create_user_prompt() {
         // Set the API key for testing
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
         
         // Create a provider
         let provider = ClaudeProvider::new().unwrap();
@@ -283,13 +283,13 @@ mod tests {
         assert!(prompt.contains("Their content"));
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
     }
     
     #[test]
     fn test_resolve_conflict() {
         // Set the API key for testing
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
         
         // Create a provider
         let provider = ClaudeProvider::new().unwrap();
@@ -308,14 +308,14 @@ mod tests {
         assert!(response.token_usage.is_some());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
     }
     
     proptest! {
         #[test]
         fn test_create_user_prompt_prop(our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
             // Set the API key for testing
-            env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+            env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
             
             // Create a provider
             let provider = ClaudeProvider::new().unwrap();
@@ -332,7 +332,7 @@ mod tests {
             prop_assert!(prompt.contains(&their_content));
             
             // Clean up environment
-            env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+            env::remove_var("RIZZLER_CLAUDE_API_KEY");
         }
     }
 }

@@ -1,6 +1,6 @@
 // Example of implementing a custom resolution strategy
 
-use git_merge_ai_resolver::{
+use rizzler_ai_resolver::{
     conflict_parser::{ConflictFile, ConflictRegion},
     resolution_engine::{ResolutionEngine, ResolutionError, ResolutionStrategy},
 };
@@ -55,7 +55,7 @@ fn main() {
     };
     
     // Parse the file to find conflicts
-    let parser = git_merge_ai_resolver::conflict_parser::parse_conflict_file_with_base;
+    let parser = rizzler_ai_resolver::conflict_parser::parse_conflict_file_with_base;
     let conflict_file = match parser(&content, file_path) {
         Ok(file) => file,
         Err(err) => {

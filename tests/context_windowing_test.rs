@@ -1,7 +1,7 @@
-use git_merge_ai_resolver::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage};
-use git_merge_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
-use git_merge_ai_resolver::providers::OpenAIProvider;
-use git_merge_ai_resolver::windowing::WindowingStrategy;
+use rizzler_ai_resolver::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage};
+use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler_ai_resolver::providers::OpenAIProvider;
+use rizzler_ai_resolver::windowing::WindowingStrategy;
 use std::env;
 
 #[test]
@@ -72,7 +72,7 @@ impl AIProvider for MockAIProvider {
         true
     }
     
-    fn config(&self) -> &git_merge_ai_resolver::ai_provider::AIProviderConfig {
+    fn config(&self) -> &rizzler_ai_resolver::ai_provider::AIProviderConfig {
         // We don't need this for the mock
         unimplemented!()
     }

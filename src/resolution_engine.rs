@@ -425,7 +425,7 @@ mod tests {
         use std::env;
         
         // Set up environment variables for file-type specific strategies
-        env::set_var("GIT_MERGE_EXTENSION_STRATEGY_txt", "whitespace-only");
+        env::set_var("RIZZLER_EXTENSION_STRATEGY_txt", "whitespace-only");
         
         // Create a new engine that will load the config with our environment variables
         let engine = ResolutionEngine::new();
@@ -453,6 +453,6 @@ mod tests {
         assert_eq!(resolution.strategy_name, "whitespace-only");
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_EXTENSION_STRATEGY_txt");
+        env::remove_var("RIZZLER_EXTENSION_STRATEGY_txt");
     }
 }

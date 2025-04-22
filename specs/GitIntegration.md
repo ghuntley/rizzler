@@ -2,14 +2,14 @@
 
 ## Overview
 
-The git-merge-ai-resolver integrates with Git as a custom merge driver, allowing it to automatically resolve conflicts during merge operations.
+The rizzler integrates with Git as a custom merge driver, allowing it to automatically resolve conflicts during merge operations.
 
 ## Git Merge Driver Interface
 
 When invoked as a Git merge driver, the tool will accept the standard Git merge driver arguments:
 
 ```
-git-merge-ai-resolver %O %A %B %P
+rizzler %O %A %B %P
 ```
 
 Where:
@@ -41,9 +41,9 @@ Where:
 The setup process adds the following to `.gitconfig`:
 
 ```
-[merge "git-merge-ai-resolver"]
+[merge "rizzler"]
     name = AI-powered Git merge conflict resolver
-    driver = git-merge-ai-resolver %O %A %B %P
+    driver = rizzler %O %A %B %P
     trustExitCode = true
 ```
 
@@ -52,9 +52,9 @@ The setup process adds the following to `.gitconfig`:
 File associations are configured in `.gitattributes`:
 
 ```
-*.js merge=git-merge-ai-resolver
-*.py merge=git-merge-ai-resolver
-*.rs merge=git-merge-ai-resolver
+*.js merge=rizzler
+*.py merge=rizzler
+*.rs merge=rizzler
 # etc.
 ```
 

@@ -1,7 +1,7 @@
-use git_merge_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
-use git_merge_ai_resolver::ai_resolution_windowing::{AIFileResolutionWithWindowingStrategy, AIResolutionWithWindowingStrategy};
-use git_merge_ai_resolver::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage, AIProviderConfig};
-use git_merge_ai_resolver::resolution_engine::{ResolutionStrategy, ResolutionError};
+use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler_ai_resolver::ai_resolution_windowing::{AIFileResolutionWithWindowingStrategy, AIResolutionWithWindowingStrategy};
+use rizzler_ai_resolver::ai_provider::{AIProvider, AIProviderError, AIResponse, TokenUsage, AIProviderConfig};
+use rizzler_ai_resolver::resolution_engine::{ResolutionStrategy, ResolutionError};
 use std::env;
 use std::collections::HashMap;
 
@@ -104,7 +104,7 @@ impl AIProvider for MockAIProvider {
 // Mock the AIResolutionStrategy for testing
 mod ai_resolution_mocks {
     use super::*;
-    use git_merge_ai_resolver::resolution_engine::{ResolutionStrategy, ResolutionError};
+    use rizzler_ai_resolver::resolution_engine::{ResolutionStrategy, ResolutionError};
     
     pub struct MockAIResolutionStrategy;
     
@@ -143,13 +143,13 @@ fn test_ai_resolution_with_windowing_large_file() {
     let conflict_file = create_large_test_conflict_file();
     
     // Set environment variables for testing
-    env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_AI_TOKEN_LIMIT", "100"); // Small limit to force windowing
-    env::set_var("GIT_MERGE_AI_MAX_CONTEXT_LINES", "10");
+    env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_TOKEN_LIMIT", "100"); // Small limit to force windowing
+    env::set_var("RIZZLER_MAX_CONTEXT_LINES", "10");
     
     // Create a windowing mock (we're not testing the actual AIResolutionStrategy here)
     let mock_provider = Box::new(MockAIProvider::new());
-    let windowing_strategy = git_merge_ai_resolver::windowing::WindowingStrategy::new(mock_provider, 10);
+    let windowing_strategy = rizzler_ai_resolver::windowing::WindowingStrategy::new(mock_provider, 10);
     
     // Resolve all conflicts in the file
     let result = windowing_strategy.resolve_file(&conflict_file);
@@ -162,9 +162,9 @@ fn test_ai_resolution_with_windowing_large_file() {
     assert!(resolved.contains("Resolved content at line 4000"));
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-    env::remove_var("GIT_MERGE_AI_TOKEN_LIMIT");
-    env::remove_var("GIT_MERGE_AI_MAX_CONTEXT_LINES");
+    env::remove_var("RIZZLER_OPENAI_API_KEY");
+    env::remove_var("RIZZLER_TOKEN_LIMIT");
+    env::remove_var("RIZZLER_MAX_CONTEXT_LINES");
 }
 
 #[test]
@@ -174,20 +174,20 @@ fn test_ai_resolution_with_windowing_small_file() {
     let conflict_file = create_test_conflict_file(vec![conflict.clone()]);
     
     // Set environment variables for testing
-    env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_AI_TOKEN_LIMIT", "10000"); // Large limit to avoid windowing
+    env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_TOKEN_LIMIT", "10000"); // Large limit to avoid windowing
     
     // Create a windowing mock
     let mock_provider = Box::new(MockAIProvider::new());
-    let windowing_strategy = git_merge_ai_resolver::windowing::WindowingStrategy::new(mock_provider, 10);
+    let windowing_strategy = rizzler_ai_resolver::windowing::WindowingStrategy::new(mock_provider, 10);
     
     // Resolve the conflict
     let result = windowing_strategy.resolve_conflict(&conflict);
     assert!(result.is_ok());
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-    env::remove_var("GIT_MERGE_AI_TOKEN_LIMIT");
+    env::remove_var("RIZZLER_OPENAI_API_KEY");
+    env::remove_var("RIZZLER_TOKEN_LIMIT");
 }
 
 #[test]
@@ -222,8 +222,8 @@ fn test_ai_resolution_with_windowing_strategy_delegation() {
     // delegates to either WindowingStrategy or AIResolutionStrategy based on content size
     
     // Set environment variables for testing
-    env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-    env::set_var("GIT_MERGE_AI_TOKEN_LIMIT", "100"); // Small limit to force windowing
+    env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+    env::set_var("RIZZLER_TOKEN_LIMIT", "100"); // Small limit to force windowing
     
     // Create a conflict with content just below and just above the token limit
     let small_conflict = ConflictRegion {
@@ -279,8 +279,8 @@ fn test_ai_resolution_with_windowing_strategy_delegation() {
     assert!(estimate_tokens(&large_conflict_content) > 100, "Large conflict should be above the token limit");
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-    env::remove_var("GIT_MERGE_AI_TOKEN_LIMIT");
+    env::remove_var("RIZZLER_OPENAI_API_KEY");
+    env::remove_var("RIZZLER_TOKEN_LIMIT");
 }
 
 // Helper function to create a test conflict region

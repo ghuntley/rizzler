@@ -81,13 +81,13 @@ mod tests {
             .expect("Failed to checkout branch");
     }
     
-    // Helper function to configure git-merge-ai-resolver as the merge driver
+    // Helper function to configure rizzler as the merge driver
     fn configure_merge_driver(repo_dir: &Path, resolver_path: &Path) {
         // Configure the merge driver in .git/config
         let _ = Command::new("git")
             .args([
                 "config", 
-                "merge.git-merge-ai-resolver.driver", 
+                "merge.rizzler.driver", 
                 &format!("{} %O %A %B %P", resolver_path.display())
             ])
             .current_dir(repo_dir)
@@ -97,7 +97,7 @@ mod tests {
         // Configure file types in .gitattributes
         let gitattributes_path = repo_dir.join(".gitattributes");
         let mut file = File::create(&gitattributes_path).expect("Failed to create .gitattributes");
-        write!(file, "*.txt merge=git-merge-ai-resolver\n").expect("Failed to write to .gitattributes");
+        write!(file, "*.txt merge=rizzler\n").expect("Failed to write to .gitattributes");
         
         // Commit the .gitattributes file
         commit_changes(repo_dir, "Add .gitattributes");
@@ -116,10 +116,10 @@ mod tests {
     
     #[test]
     #[ignore] // This test requires a built binary and git command line
-    fn test_git_merge_driver_integration() {
-        // Find the git-merge-ai-resolver binary
+    fn test_rizzler_driver_integration() {
+        // Find the rizzler binary
         let target_dir = env::current_dir().unwrap().join("target/debug");
-        let resolver_path = target_dir.join("git-merge-ai-resolver");
+        let resolver_path = target_dir.join("rizzler");
         
         // Skip test if binary doesn't exist
         if !resolver_path.exists() {
@@ -194,12 +194,12 @@ mod tests {
         fs::write(&file_path, main_content).expect("Failed to modify file");
         commit_changes(repo_dir.path(), "Add divide function");
         
-        // Configure git-merge-ai-resolver
+        // Configure rizzler
         configure_merge_driver(repo_dir.path(), &resolver_path);
         
         // Set test environment variables for the merge driver
-        env::set_var("GIT_MERGE_AI_PROVIDER", "openai");
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-key");
+        env::set_var("RIZZLER_PROVIDER", "openai");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-key");
         
         // Merge the feature branch (should use our merge driver)
         let merge_successful = merge_branch(repo_dir.path(), "feature-branch");
@@ -213,7 +213,7 @@ mod tests {
         }
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_AI_PROVIDER");
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_PROVIDER");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
     }
 }

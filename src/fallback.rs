@@ -22,7 +22,7 @@ impl FallbackResolutionStrategy {
     /// Create a new fallback resolution strategy with default provider order
     pub fn new() -> Result<Self, ResolutionError> {
         // Get fallback order from environment variable
-        let fallback_order = env::var("GIT_MERGE_AI_FALLBACK_ORDER")
+        let fallback_order = env::var("RIZZLER_FALLBACK_ORDER")
             .unwrap_or_else(|_| "openai,claude,gemini,bedrock".to_string());
         
         Self::with_providers(&fallback_order)
@@ -228,8 +228,8 @@ mod tests {
     #[test]
     fn test_fallback_strategy_initialization() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
         
         // Test initialization with default provider order
         let strategy = FallbackResolutionStrategy::new();
@@ -253,8 +253,8 @@ mod tests {
         assert!(strategy.is_ok()); // Should still work with just openai
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
     }
     
     // This test verifies that the fallback strategy fails when no providers are available
@@ -275,9 +275,9 @@ mod tests {
     #[test]
     fn test_fallback_strategy_multiple_providers() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
         env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
         env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
         env::set_var("AWS_REGION", "us-east-1");
@@ -296,9 +296,9 @@ mod tests {
         assert!(strategy.provider_names().contains(&"bedrock".to_string()));
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
         env::remove_var("AWS_ACCESS_KEY_ID");
         env::remove_var("AWS_SECRET_ACCESS_KEY");
         env::remove_var("AWS_REGION");
@@ -307,8 +307,8 @@ mod tests {
     #[test]
     fn test_fallback_strategy_conflict_resolution() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
         
         // Create a test conflict
         let conflict = create_test_conflict("Our content\n", "Their content\n");
@@ -331,8 +331,8 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
     }
     
     #[test]
@@ -368,7 +368,7 @@ mod tests {
     #[test]
     fn test_fallback_strategy_failover() {
         // Set only Claude API key to test failover
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
         
         // Create strategy with OpenAI first (which should fail) then Claude (which should work)
         let strategy = FallbackResolutionStrategy::with_providers("openai,claude");
@@ -389,6 +389,6 @@ mod tests {
         assert!(result.is_ok());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
     }
 }

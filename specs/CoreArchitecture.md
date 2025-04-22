@@ -2,7 +2,7 @@
 
 ## Overview
 
-The git-merge-ai-resolver is a Git merge driver written in Rust that automatically resolves merge conflicts using AI techniques. It integrates with Git's custom merge driver system to handle merge conflicts programmatically rather than requiring manual resolution.
+The rizzler is a Git merge driver written in Rust that automatically resolves merge conflicts using AI techniques. It integrates with Git's custom merge driver system to handle merge conflicts programmatically rather than requiring manual resolution.
 
 ## Components
 

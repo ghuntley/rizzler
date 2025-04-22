@@ -46,7 +46,7 @@ impl std::error::Error for MergeDriverError {}
 
 /// Parse Git merge driver arguments
 ///
-/// Git calls merge drivers with: git-merge-ai-resolver %O %A %B %P
+/// Git calls merge drivers with: rizzler %O %A %B %P
 /// Where:
 /// - %O: Path to the ancestor's version of the file
 /// - %A: Path to the current version of the file

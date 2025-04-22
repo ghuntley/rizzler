@@ -1,4 +1,4 @@
-use git_merge_ai_resolver::{BedrockProvider, AIProvider};
+use rizzler_ai_resolver::{BedrockProvider, AIProvider};
 use std::collections::HashMap;
 use std::env;
 
@@ -13,7 +13,7 @@ fn test_bedrock_provider_configuration() {
     // Create a mock environment with the necessary AWS Bedrock provider config
     let mut env_vars = HashMap::new();
     env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
-    env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+    env_vars.insert("RIZZLER_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
 
     // Initialize Bedrock provider
     let provider = BedrockProvider::new_with_config(env_vars);
@@ -36,7 +36,7 @@ fn test_bedrock_provider_request_building() {
     // Create a mock environment with the necessary AWS Bedrock provider config
     let mut env_vars = HashMap::new();
     env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
-    env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+    env_vars.insert("RIZZLER_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
 
     // Initialize Bedrock provider
     let provider = BedrockProvider::new_with_config(env_vars);

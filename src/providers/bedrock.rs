@@ -36,26 +36,26 @@ impl BedrockProvider {
         };
         
         // Get model information
-        let model = env::var("GIT_MERGE_BEDROCK_MODEL").unwrap_or_else(|_| {
+        let model = env::var("RIZZLER_BEDROCK_MODEL").unwrap_or_else(|_| {
             // Default to Anthropic Claude 3 Sonnet on Bedrock if not specified
             "anthropic.claude-3-sonnet-20240229-v1:0".to_string()
         });
         
         // Get timeout configuration
-        let timeout_seconds = env::var("GIT_MERGE_AI_TIMEOUT")
+        let timeout_seconds = env::var("RIZZLER_TIMEOUT")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(60);
         
         // Get custom system prompt if provided
-        let system_prompt = env::var("GIT_MERGE_AI_SYSTEM_PROMPT").ok();
+        let system_prompt = env::var("RIZZLER_SYSTEM_PROMPT").ok();
         
         // Create additional settings map
         let mut additional_settings = HashMap::new();
-        if let Ok(max_tokens) = env::var("GIT_MERGE_BEDROCK_MAX_TOKENS") {
+        if let Ok(max_tokens) = env::var("RIZZLER_BEDROCK_MAX_TOKENS") {
             additional_settings.insert("max_tokens".to_string(), max_tokens);
         }
-        if let Ok(temperature) = env::var("GIT_MERGE_BEDROCK_TEMPERATURE") {
+        if let Ok(temperature) = env::var("RIZZLER_BEDROCK_TEMPERATURE") {
             additional_settings.insert("temperature".to_string(), temperature);
         }
         
@@ -83,24 +83,24 @@ impl BedrockProvider {
             .unwrap_or_else(|| "us-east-1".to_string());
         
         // Get model information
-        let model = env_vars.get("GIT_MERGE_BEDROCK_MODEL")
+        let model = env_vars.get("RIZZLER_BEDROCK_MODEL")
             .cloned()
             .unwrap_or_else(|| "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
         
         // Get timeout configuration
-        let timeout_seconds = env_vars.get("GIT_MERGE_AI_TIMEOUT")
+        let timeout_seconds = env_vars.get("RIZZLER_TIMEOUT")
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(60);
         
         // Get custom system prompt if provided
-        let system_prompt = env_vars.get("GIT_MERGE_AI_SYSTEM_PROMPT").cloned();
+        let system_prompt = env_vars.get("RIZZLER_SYSTEM_PROMPT").cloned();
         
         // Create additional settings map
         let mut additional_settings = HashMap::new();
-        if let Some(max_tokens) = env_vars.get("GIT_MERGE_BEDROCK_MAX_TOKENS") {
+        if let Some(max_tokens) = env_vars.get("RIZZLER_BEDROCK_MAX_TOKENS") {
             additional_settings.insert("max_tokens".to_string(), max_tokens.clone());
         }
-        if let Some(temperature) = env_vars.get("GIT_MERGE_BEDROCK_TEMPERATURE") {
+        if let Some(temperature) = env_vars.get("RIZZLER_BEDROCK_TEMPERATURE") {
             additional_settings.insert("temperature".to_string(), temperature.clone());
         }
         
@@ -392,9 +392,9 @@ mod tests {
         // Create mock environment variables
         let mut env_vars = HashMap::new();
         env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
-        env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
-        env_vars.insert("GIT_MERGE_AI_SYSTEM_PROMPT".to_string(), "Test system prompt".to_string());
-        env_vars.insert("GIT_MERGE_AI_TIMEOUT".to_string(), "45".to_string());
+        env_vars.insert("RIZZLER_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+        env_vars.insert("RIZZLER_SYSTEM_PROMPT".to_string(), "Test system prompt".to_string());
+        env_vars.insert("RIZZLER_TIMEOUT".to_string(), "45".to_string());
         
         // Create provider with mock config
         let provider = BedrockProvider::new_with_config(env_vars);
@@ -411,7 +411,7 @@ mod tests {
         // Create mock environment variables
         let mut env_vars = HashMap::new();
         env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
-        env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+        env_vars.insert("RIZZLER_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
         
         // Create provider with mock config
         let provider = BedrockProvider::new_with_config(env_vars);
@@ -438,7 +438,7 @@ mod tests {
         // Create mock environment variables
         let mut env_vars = HashMap::new();
         env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
-        env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+        env_vars.insert("RIZZLER_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
         
         // Create provider with mock config
         let provider = BedrockProvider::new_with_config(env_vars);
@@ -462,7 +462,7 @@ mod tests {
             // Create mock environment variables
             let mut env_vars = HashMap::new();
             env_vars.insert("AWS_REGION".to_string(), "us-east-1".to_string());
-            env_vars.insert("GIT_MERGE_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
+            env_vars.insert("RIZZLER_BEDROCK_MODEL".to_string(), "anthropic.claude-3-sonnet-20240229-v1:0".to_string());
             
             // Create provider with mock config
             let provider = BedrockProvider::new_with_config(env_vars);

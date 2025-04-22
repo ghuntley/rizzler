@@ -1,9 +1,9 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use git_merge_ai_resolver::cache::AIResolutionCache;
-use git_merge_ai_resolver::conflict_parser::{ConflictRegion, ConflictFile};
-use git_merge_ai_resolver::ai_provider::{AIResponse, TokenUsage};
+use rizzler_ai_resolver::cache::AIResolutionCache;
+use rizzler_ai_resolver::conflict_parser::{ConflictRegion, ConflictFile};
+use rizzler_ai_resolver::ai_provider::{AIResponse, TokenUsage};
 use std::thread;
 use std::time::Duration;
 use std::collections::HashMap;

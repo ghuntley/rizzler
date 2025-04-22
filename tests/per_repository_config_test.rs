@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use git_merge_ai_resolver::config::{Config, ConfigError};
+use rizzler_ai_resolver::config::{Config, ConfigError};
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -15,7 +15,7 @@ fn test_per_repository_config_loading() {
     let repo_path = temp_dir.path();
     
     // Simulate a repository-specific configuration file
-    let config_path = repo_path.join(".git-merge-ai-resolver");
+    let config_path = repo_path.join(".rizzler");
     let mut file = File::create(&config_path).unwrap();
     
     // Write a TOML configuration file
@@ -67,7 +67,7 @@ fn test_repository_config_precedence() {
     let repo_path = temp_dir.path();
     
     // Simulate a repository-specific configuration file
-    let config_path = repo_path.join(".git-merge-ai-resolver");
+    let config_path = repo_path.join(".rizzler");
     let mut file = File::create(&config_path).unwrap();
     
     writeln!(
@@ -84,7 +84,7 @@ fn test_repository_config_precedence() {
     .unwrap();
     
     // Set environment variables that should override the file-based config
-    env::set_var("GIT_MERGE_AI_PROVIDER_DEFAULT", "openai");
+    env::set_var("RIZZLER_PROVIDER_DEFAULT", "openai");
     
     // Set the current working directory to the temp dir for the test
     let original_dir = env::current_dir().unwrap();
@@ -101,7 +101,7 @@ fn test_repository_config_precedence() {
     assert_eq!(config.resolution.default_strategy, "ai-windowing");
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_AI_PROVIDER_DEFAULT");
+    env::remove_var("RIZZLER_PROVIDER_DEFAULT");
     
     // Reset the current working directory
     env::set_current_dir(original_dir).unwrap();
@@ -129,7 +129,7 @@ fn test_save_repository_config() {
     assert!(result.is_ok());
     
     // Verify that the file was created
-    let config_path = repo_path.join(".git-merge-ai-resolver");
+    let config_path = repo_path.join(".rizzler");
     assert!(config_path.exists());
     
     // Load the configuration from the file and verify it matches

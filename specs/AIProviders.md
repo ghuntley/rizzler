@@ -2,15 +2,15 @@
 
 ## Overview
 
-The git-merge-ai-resolver will support multiple AI providers to give users flexibility in choosing which models to use for conflict resolution.
+The rizzler will support multiple AI providers to give users flexibility in choosing which models to use for conflict resolution.
 
 ## Supported Providers
 
 ### OpenAI
 - Environment variables:
-  - `GIT_MERGE_OPENAI_API_KEY`: API key for authentication
-  - `GIT_MERGE_OPENAI_BASE_URL`: Custom API endpoint URL (optional)
-  - `GIT_MERGE_OPENAI_ORG_ID`: Organization ID (optional)
+  - `RIZZLER_OPENAI_API_KEY`: API key for authentication
+  - `RIZZLER_OPENAI_BASE_URL`: Custom API endpoint URL (optional)
+  - `RIZZLER_OPENAI_ORG_ID`: Organization ID (optional)
 - Models supported: GPT-3.5-turbo, GPT-4, GPT-4-turbo
 - Custom endpoint support:
   - Azure OpenAI Service
@@ -18,13 +18,13 @@ The git-merge-ai-resolver will support multiple AI providers to give users flexi
   - Enterprise endpoints
 
 ### Anthropic (Claude)
-- Environment variable: `GIT_MERGE_CLAUDE_API_KEY`
+- Environment variable: `RIZZLER_CLAUDE_API_KEY`
 - Models supported: Claude 3 Opus, Sonnet, Haiku
 - Optional configuration parameters:
   - Base URL (for enterprise endpoints)
 
 ### Google (Gemini)
-- Environment variable: `GIT_MERGE_GEMINI_API_KEY`
+- Environment variable: `RIZZLER_GEMINI_API_KEY`
 - Models supported: Gemini Pro, Gemini Ultra
 - Optional configuration parameters:
   - Project ID
@@ -54,7 +54,7 @@ The git-merge-ai-resolver will support multiple AI providers to give users flexi
 
 ## System Prompt Configuration
 
-- Environment variable: `GIT_MERGE_AI_SYSTEM_PROMPT` - Override the default system prompt
+- Environment variable: `RIZZLER_SYSTEM_PROMPT` - Override the default system prompt
 - Default system prompt will instruct the AI to:
   - Analyze all files involved in the merge
   - Pay special attention to identified files with conflicts

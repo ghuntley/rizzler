@@ -2,14 +2,14 @@
 
 ## Overview
 
-The git-merge-ai-resolver will use the Rust `clap` crate to implement a command-line interface for configuration, manual conflict resolution, and integration with Git.
+The rizzler will use the Rust `clap` crate to implement a command-line interface for configuration, manual conflict resolution, and integration with Git.
 
 ## Command Structure
 
 ### Primary Commands
 
 ```
-git-merge-ai-resolver [SUBCOMMAND]
+rizzler [SUBCOMMAND]
 ```
 
 Without a subcommand, the binary acts as a Git merge driver, reading from standard input and writing to standard output according to Git's merge driver protocol.
@@ -17,7 +17,7 @@ Without a subcommand, the binary acts as a Git merge driver, reading from standa
 ### Subcommands
 
 1. **setup**
-   - Configure git-merge-ai-resolver as a merge driver in Git
+   - Configure rizzler as a merge driver in Git
 
 2. **config**
    - View and modify configuration settings
@@ -36,7 +36,7 @@ Without a subcommand, the binary acts as a Git merge driver, reading from standa
 ### Setup Command
 
 ```
-git-merge-ai-resolver setup [--global] [--local] [--extensions <EXTENSIONS>...]
+rizzler setup [--global] [--local] [--extensions <EXTENSIONS>...]
 ```
 
 Options:
@@ -47,7 +47,7 @@ Options:
 ### Config Command
 
 ```
-git-merge-ai-resolver config [get|set|list] [KEY] [VALUE]
+rizzler config [get|set|list] [KEY] [VALUE]
 ```
 
 Subcommands:
@@ -58,7 +58,7 @@ Subcommands:
 ### Resolve Command
 
 ```
-git-merge-ai-resolver resolve <FILE> [--output <FILE>] [--provider <PROVIDER>]
+rizzler resolve <FILE> [--output <FILE>] [--provider <PROVIDER>]
 ```
 
 Options:
@@ -73,7 +73,7 @@ The CLI will use Clap's derive API for a type-safe, declarative command structur
 
 ```rust
 #[derive(Parser)]
-#[command(name = "git-merge-ai-resolver")]
+#[command(name = "rizzler")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -93,6 +93,6 @@ enum Commands {
 
 The CLI will recognize these environment variables in addition to provider-specific ones:
 
-- `GIT_MERGE_AI_CONFIG_PATH`: Override path to configuration file
-- `GIT_MERGE_AI_DEBUG`: Enable debug output (1=true, 0=false)
-- `GIT_MERGE_AI_TIMEOUT`: Default timeout in seconds
+- `RIZZLER_CONFIG_PATH`: Override path to configuration file
+- `RIZZLER_DEBUG`: Enable debug output (1=true, 0=false)
+- `RIZZLER_TIMEOUT`: Default timeout in seconds

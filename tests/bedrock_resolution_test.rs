@@ -1,6 +1,6 @@
-use git_merge_ai_resolver::ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
-use git_merge_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
-use git_merge_ai_resolver::ResolutionStrategy;
+use rizzler_ai_resolver::ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy};
+use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler_ai_resolver::ResolutionStrategy;
 use std::env;
 
 // Helper function to create a test conflict region
@@ -29,7 +29,7 @@ fn test_ai_resolution_strategy_initialization_bedrock() {
     env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
     env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
     env::set_var("AWS_REGION", "us-east-1");
-    env::set_var("GIT_MERGE_AI_PROVIDER", "bedrock");
+    env::set_var("RIZZLER_PROVIDER", "bedrock");
     
     // Test initialization with default provider (now bedrock)
     let strategy = AIResolutionStrategy::new();
@@ -43,7 +43,7 @@ fn test_ai_resolution_strategy_initialization_bedrock() {
     env::remove_var("AWS_ACCESS_KEY_ID");
     env::remove_var("AWS_SECRET_ACCESS_KEY");
     env::remove_var("AWS_REGION");
-    env::remove_var("GIT_MERGE_AI_PROVIDER");
+    env::remove_var("RIZZLER_PROVIDER");
 }
 
 #[test]

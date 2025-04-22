@@ -173,14 +173,14 @@ impl GeminiProvider {
         // In non-test mode, require a real key
         {
             // Try to get the API key from environment variable
-            match env::var("GIT_MERGE_GEMINI_API_KEY") {
+            match env::var("RIZZLER_GEMINI_API_KEY") {
                 Ok(key) => {
                     // Return the provided API key
                     Self::new_with_api_key(key)
                 },
                 Err(_) => {
                     return Err(AIProviderError::ConfigError(
-                        "Missing Gemini API key. Set GIT_MERGE_GEMINI_API_KEY environment variable".to_string()
+                        "Missing Gemini API key. Set RIZZLER_GEMINI_API_KEY environment variable".to_string()
                     ));
                 }
             }
@@ -191,38 +191,38 @@ impl GeminiProvider {
     fn new_with_api_key(api_key: String) -> Result<Self, AIProviderError> {
         
         // Get other configuration from environment variables
-        let model = env::var("GIT_MERGE_GEMINI_MODEL").unwrap_or_else(|_| "gemini-pro".to_string());
-        let timeout_seconds = env::var("GIT_MERGE_AI_TIMEOUT")
+        let model = env::var("RIZZLER_GEMINI_MODEL").unwrap_or_else(|_| "gemini-pro".to_string());
+        let timeout_seconds = env::var("RIZZLER_TIMEOUT")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(60);
         
         // Get custom system prompt if provided
-        let system_prompt = env::var("GIT_MERGE_AI_SYSTEM_PROMPT").ok();
+        let system_prompt = env::var("RIZZLER_SYSTEM_PROMPT").ok();
         
         // Create additional settings map
         let mut additional_settings = HashMap::new();
         
         // Get project ID and location
-        if let Ok(project_id) = env::var("GIT_MERGE_GEMINI_PROJECT_ID") {
+        if let Ok(project_id) = env::var("RIZZLER_GEMINI_PROJECT_ID") {
             additional_settings.insert("project_id".to_string(), project_id);
         }
         
-        if let Ok(location) = env::var("GIT_MERGE_GEMINI_LOCATION") {
+        if let Ok(location) = env::var("RIZZLER_GEMINI_LOCATION") {
             additional_settings.insert("location".to_string(), location);
         }
         
-        if let Ok(max_tokens) = env::var("GIT_MERGE_GEMINI_MAX_TOKENS") {
+        if let Ok(max_tokens) = env::var("RIZZLER_GEMINI_MAX_TOKENS") {
             additional_settings.insert("max_tokens".to_string(), max_tokens);
         }
         
-        if let Ok(temperature) = env::var("GIT_MERGE_GEMINI_TEMPERATURE") {
+        if let Ok(temperature) = env::var("RIZZLER_GEMINI_TEMPERATURE") {
             additional_settings.insert("temperature".to_string(), temperature);
         }
         
         // Determine which prompt template to use based on environment variable
         // Default to the Enhanced template for better results
-        let prompt_template = match env::var("GIT_MERGE_AI_PROMPT_TEMPLATE").ok().as_deref() {
+        let prompt_template = match env::var("RIZZLER_PROMPT_TEMPLATE").ok().as_deref() {
             Some("default") => PromptTemplate::Default,
             Some("context-aware") => PromptTemplate::ContextAware,
             _ => PromptTemplate::Enhanced, // Default to enhanced
@@ -471,12 +471,12 @@ mod tests {
     #[test]
     fn test_gemini_provider_config() {
         // Set environment variables for testing
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
-        env::set_var("GIT_MERGE_GEMINI_MODEL", "gemini-ultra");
-        env::set_var("GIT_MERGE_GEMINI_PROJECT_ID", "test-project");
-        env::set_var("GIT_MERGE_GEMINI_LOCATION", "us-central1");
-        env::set_var("GIT_MERGE_AI_SYSTEM_PROMPT", "Test system prompt");
-        env::set_var("GIT_MERGE_AI_TIMEOUT", "40");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_GEMINI_MODEL", "gemini-ultra");
+        env::set_var("RIZZLER_GEMINI_PROJECT_ID", "test-project");
+        env::set_var("RIZZLER_GEMINI_LOCATION", "us-central1");
+        env::set_var("RIZZLER_SYSTEM_PROMPT", "Test system prompt");
+        env::set_var("RIZZLER_TIMEOUT", "40");
         
         // Create provider
         let provider = GeminiProvider::new().unwrap();
@@ -490,18 +490,18 @@ mod tests {
         assert_eq!(provider.config().timeout_seconds, 40);
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
-        env::remove_var("GIT_MERGE_GEMINI_MODEL");
-        env::remove_var("GIT_MERGE_GEMINI_PROJECT_ID");
-        env::remove_var("GIT_MERGE_GEMINI_LOCATION");
-        env::remove_var("GIT_MERGE_AI_SYSTEM_PROMPT");
-        env::remove_var("GIT_MERGE_AI_TIMEOUT");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_MODEL");
+        env::remove_var("RIZZLER_GEMINI_PROJECT_ID");
+        env::remove_var("RIZZLER_GEMINI_LOCATION");
+        env::remove_var("RIZZLER_SYSTEM_PROMPT");
+        env::remove_var("RIZZLER_TIMEOUT");
     }
     
     #[test]
     fn test_conflict_prompt_generation() {
         // Set the API key for testing
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
         
         // Create a provider
         let provider = GeminiProvider::new().unwrap();
@@ -521,13 +521,13 @@ mod tests {
         assert!(prompt.contains("Their content"));
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
     }
     
     #[test]
     fn test_resolve_conflict() {
         // Set the API key for testing
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
         
         // Create a provider
         let provider = GeminiProvider::new().unwrap();
@@ -546,14 +546,14 @@ mod tests {
         assert!(response.token_usage.is_some());
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
     }
     
     proptest! {
         #[test]
         fn test_conflict_prompt_generation_prop(our_content in r"[\w\s]{1,100}", their_content in r"[\w\s]{1,100}") {
             // Set the API key for testing
-            env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
+            env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
             
             // Create a provider
             let provider = GeminiProvider::new().unwrap();
@@ -570,7 +570,7 @@ mod tests {
             prop_assert!(prompt.contains(&their_content));
             
             // Clean up environment
-            env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+            env::remove_var("RIZZLER_GEMINI_API_KEY");
         }
     }
 }

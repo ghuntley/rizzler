@@ -2,7 +2,7 @@
 
 ## Project Information
 
-- **Project Name:** git-merge-ai-resolver
+- **Project Name:** rizzler
 - **Author:** Geoffrey Huntley <ghuntley@ghuntley.com>
 - **License:** MIT License
 

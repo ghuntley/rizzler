@@ -2,7 +2,7 @@
 
 ## Overview
 
-The git-merge-ai-resolver will use the Rust `tracing` crate for structured logging, diagnostics, and metrics collection.
+The rizzler will use the Rust `tracing` crate for structured logging, diagnostics, and metrics collection.
 
 ## Tracing Architecture
 
@@ -78,7 +78,7 @@ tracing-opentelemetry - Optional OpenTelemetry integration
 
 ### Environment Variables
 
-- `GIT_MERGE_LOG_LEVEL`: Overall logging level (error, warn, info, debug, trace)
-- `GIT_MERGE_LOG_FILE`: Path to log file (if not provided, logs to stderr only)
-- `GIT_MERGE_LOG_FORMAT`: Format for logs (compact, pretty, json)
-- `GIT_MERGE_METRICS_ENABLED`: Enable/disable metrics collection
+- `RIZZLER_LOG_LEVEL`: Overall logging level (error, warn, info, debug, trace)
+- `RIZZLER_LOG_FILE`: Path to log file (if not provided, logs to stderr only)
+- `RIZZLER_LOG_FORMAT`: Format for logs (compact, pretty, json)
+- `RIZZLER_METRICS_ENABLED`: Enable/disable metrics collection

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use git_merge_ai_resolver::{
+use rizzler_ai_resolver::{
     conflict_parser::{ConflictFile, ConflictRegion},
     resolution_engine::{ResolutionEngine, ResolutionError, ResolutionStrategy},
     ai_resolution::{AIResolutionStrategy, AIFileResolutionStrategy}
@@ -304,9 +304,9 @@ proptest! {
     #[test]
     fn test_ai_resolution_strategy_integration(conflict_file in conflict_file_strategy()) {
         // Set API keys for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-key");
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-key");
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-key");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-key");
         env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
         env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
         env::set_var("AWS_REGION", "us-east-1");
@@ -331,9 +331,9 @@ proptest! {
         }
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
         env::remove_var("AWS_ACCESS_KEY_ID");
         env::remove_var("AWS_SECRET_ACCESS_KEY");
         env::remove_var("AWS_REGION");
@@ -343,9 +343,9 @@ proptest! {
     #[test]
     fn test_ai_file_resolution_strategy_integration(conflict_file in conflict_file_strategy()) {
         // Set API keys for testing
-        env::set_var("GIT_MERGE_OPENAI_API_KEY", "test-key");
-        env::set_var("GIT_MERGE_CLAUDE_API_KEY", "test-key");
-        env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-key");
+        env::set_var("RIZZLER_OPENAI_API_KEY", "test-key");
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-key");
+        env::set_var("RIZZLER_GEMINI_API_KEY", "test-key");
         env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");
         env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret-key");
         env::set_var("AWS_REGION", "us-east-1");
@@ -365,9 +365,9 @@ proptest! {
         }
         
         // Clean up environment
-        env::remove_var("GIT_MERGE_OPENAI_API_KEY");
-        env::remove_var("GIT_MERGE_CLAUDE_API_KEY");
-        env::remove_var("GIT_MERGE_GEMINI_API_KEY");
+        env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
+        env::remove_var("RIZZLER_GEMINI_API_KEY");
         env::remove_var("AWS_ACCESS_KEY_ID");
         env::remove_var("AWS_SECRET_ACCESS_KEY");
         env::remove_var("AWS_REGION");

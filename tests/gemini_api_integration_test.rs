@@ -1,9 +1,9 @@
 // Copyright (c) 2025 Geoffrey Huntley
 // SPDX-License-Identifier: MIT
 
-use git_merge_ai_resolver::GeminiProvider;
-use git_merge_ai_resolver::ai_provider::{AIProvider, AIProviderError};
-use git_merge_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
+use rizzler_ai_resolver::GeminiProvider;
+use rizzler_ai_resolver::ai_provider::{AIProvider, AIProviderError};
+use rizzler_ai_resolver::conflict_parser::{ConflictFile, ConflictRegion};
 use std::env;
 
 // Helper function to create a test conflict region
@@ -30,10 +30,10 @@ fn create_test_conflict_file(conflicts: Vec<ConflictRegion>) -> ConflictFile {
 #[test]
 fn test_gemini_api_integration() {
     // Skip this test unless the Gemini API key is properly set
-    let api_key = match env::var("GIT_MERGE_GEMINI_API_KEY") {
+    let api_key = match env::var("RIZZLER_GEMINI_API_KEY") {
         Ok(key) if !key.is_empty() => key,
         _ => {
-            println!("Skipping test_gemini_api_integration: GIT_MERGE_GEMINI_API_KEY not set");
+            println!("Skipping test_gemini_api_integration: RIZZLER_GEMINI_API_KEY not set");
             return;
         }
     };

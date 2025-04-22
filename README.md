@@ -122,10 +122,10 @@ Okay, fam, let's keep it 💯. `rizzler` is cool, but AI ain't magic (yet!).
 
 **Key Environment Variables:**
 
-*   `RIZZLER_AI_PROVIDER_DEFAULT`: Which AI fam to use? (`openai`, `anthropic`, `gemini`, `bedrock`).
-*   `RIZZLER_AI_MODEL`: Specific model name (e.g., `gpt-4-turbo`, `claude-3-opus-20240229`, `gemini-pro`).
-*   `RIZZLER_AI_TIMEOUT`: How long to wait for the AI (seconds, default: 30).
-*   `RIZZLER_AI_SYSTEM_PROMPT`: Give the AI custom instructions (optional).
+*   `RIZZLER_PROVIDER_DEFAULT`: Which AI fam to use? (`openai`, `anthropic`, `gemini`, `bedrock`).
+*   `RIZZLER_MODEL`: Specific model name (e.g., `gpt-4-turbo`, `claude-3-opus-20240229`, `gemini-pro`).
+*   `RIZZLER_TIMEOUT`: How long to wait for the AI (seconds, default: 30).
+*   `RIZZLER_SYSTEM_PROMPT`: Give the AI custom instructions (optional).
 *   `RIZZLER_LOG_LEVEL`: How chatty should the logs be? (`error`, `warn`, `info`, `debug`, `trace`). Default: `info`.
 *   `RIZZLER_LOG_FILE`: Path to write logs to (optional).
 *   **API Keys (Mandatory for most providers):**
@@ -180,7 +180,7 @@ You can control which strategy gets used:
 
 **AI Providers: Choose Your Fighter**
 
-`rizzler` isn't locked into one AI. You've got options! Choose your fave provider via `RIZZLER_AI_PROVIDER_DEFAULT` or the `ai_provider.default_provider` config key.
+`rizzler` isn't locked into one AI. You've got options! Choose your fave provider via `RIZZLER_PROVIDER_DEFAULT` or the `ai_provider.default_provider` config key.
 
 *   **OpenAI:** (`openai`)
     *   Requires `RIZZLER_OPENAI_API_KEY`.
@@ -197,7 +197,7 @@ You can control which strategy gets used:
     *   Needs your AWS region configured.
     *   Supports various models available on Bedrock (including Claude).
 
-Don't forget to set the specific model you want with `RIZZLER_AI_MODEL` or `ai_provider.default_model`!
+Don't forget to set the specific model you want with `RIZZLER_MODEL` or `ai_provider.default_model`!
 
 **Bonus: The `ai-fallback` Strategy 🛡️**
 
@@ -205,10 +205,10 @@ What if your chosen AI is down or being flaky? `rizzler` has your back with the 
 
 *   **How it works:** It attempts resolution with the first provider in its list. If that fails (API error, timeout, etc.), it automatically tries the next one, and so on.
 *   **Default Order:** `openai,claude,gemini,bedrock`
-*   **Custom Order:** You can change the sequence and which providers are included using the `RIZZLER_AI_FALLBACK_ORDER` environment variable. Separate provider names (lowercase) with commas.
+*   **Custom Order:** You can change the sequence and which providers are included using the `RIZZLER_FALLBACK_ORDER` environment variable. Separate provider names (lowercase) with commas.
     ```bash
     # Example: Try Claude first, then OpenAI if Claude fails
-    export RIZZLER_AI_FALLBACK_ORDER="claude,openai"
+    export RIZZLER_FALLBACK_ORDER="claude,openai"
     ```
 *   **Availability:** Only providers that are configured correctly (e.g., have API keys set) will be included in the fallback chain.
 
@@ -218,7 +218,7 @@ This makes `rizzler` more resilient – if one service is having a moment, it ca
 
 Wanna give the AI some specific instructions or context? You can override the default system prompt.
 
-*   **Env Var:** `RIZZLER_AI_SYSTEM_PROMPT="Your custom instructions here..."`
+*   **Env Var:** `RIZZLER_SYSTEM_PROMPT="Your custom instructions here..."`
 *   **Git Config:** `rizzler config set ai_provider.system_prompt "Your custom instructions here..."`
 *   **`.rizzler` file:** Set `system_prompt` under `[ai_provider]`.
 
