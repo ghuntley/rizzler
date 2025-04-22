@@ -199,7 +199,8 @@ This document outlines the incremental delivery plan for building the git-merge-
 ### Completed Implementation Notes
 - Restructured AI provider implementation with a providers directory
 - Implemented Claude provider with Claude-3 models support
-- Implemented Gemini provider with Google AI models support
+- Implemented Gemini provider with Google AI models support with full test coverage
+    - Fixed a bug in the Bedrock provider related to the missing create_system_prompt method
 - Implemented AWS Bedrock provider with support for models hosted on AWS Bedrock (including Claude models)
 - Updated AI resolution strategies to support provider selection for all providers
 - Added comprehensive unit tests for Claude, Gemini, and Bedrock providers

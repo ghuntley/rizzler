@@ -130,29 +130,31 @@ fn test_resolve_conflict() {
 }
 
 #[test]
+#[cfg_attr(not(test), ignore = "This test only works in test mode")]
 fn test_resolve_file() {
-    // Force test mode
+    // In test mode the code automatically uses a test API key, but we'll set it explicitly
     env::set_var("TEST_MODE", "true");
-    
-    // Set the API key for testing
     env::set_var("GIT_MERGE_GEMINI_API_KEY", "test-api-key");
-    
-    // Create a provider
-    let provider = GeminiProvider::new().unwrap();
     
     // Create two test conflicts
     let conflict1 = create_test_conflict("Function 1 from our branch\n", "Function 1 from their branch\n");
     let conflict2 = create_test_conflict("Function 2 from our branch\n", "Function 2 from their branch\n");
     let conflict_file = create_test_conflict_file(vec![conflict1, conflict2]);
     
+    // Create a provider - in test mode, this should always work
+    let provider = GeminiProvider::new().unwrap();
+    
     // Check if the provider was created successfully
     assert_eq!(provider.name(), "gemini");
     assert!(provider.is_available());
+    
+    // In test mode, the API key is set to "test-api-key"
     assert_eq!(provider.config().api_key, "test-api-key");
     
-    // Resolve entire file
+    // In test mode, the resolve_file method returns a mock response rather than calling the API
+    // So this should never fail in test mode
     let result = provider.resolve_file(&conflict_file);
-    assert!(result.is_ok(), "Failed to resolve file: {:?}", result.err());
+    assert!(result.is_ok(), "The mock implementation failed unexpectedly: {:?}", result.err());
     
     let response = result.unwrap();
     assert!(!response.content.is_empty());
@@ -160,8 +162,8 @@ fn test_resolve_file() {
     assert!(response.token_usage.is_some());
     
     // Clean up environment
-    env::remove_var("GIT_MERGE_GEMINI_API_KEY");
     env::remove_var("TEST_MODE");
+    env::remove_var("GIT_MERGE_GEMINI_API_KEY");
 }
 
 #[test]
@@ -217,6 +219,9 @@ proptest! {
         let conflict1 = create_test_conflict(&conflict1_ours, &conflict1_theirs);
         let conflict2 = create_test_conflict(&conflict2_ours, &conflict2_theirs);
         let conflict_file = create_test_conflict_file(vec![conflict1, conflict2]);
+        
+        // Verify the provider is available
+        prop_assert!(provider.is_available(), "Provider should be available in test mode");
         
         // Resolve entire file
         let result = provider.resolve_file(&conflict_file);
