@@ -16,6 +16,7 @@ const message = "Waddup from feature branch!";
 >>>>>>> feature-branch
 ```
 
+
 Into *actual*, usable code, letting you get back to the important stuff. ✨
 
 ## 🚀 Get Rizzin': Installation
@@ -84,6 +85,25 @@ Okay, so how does `rizzler` actually get triggered by Git? It's not *actual* mag
 4.  **Exit Code Matters:** `rizzler` tells Git if it succeeded by its exit code. `0` means "All good, conflicts resolved!" and Git continues. Any other number means "Nah, couldn't fix it, you handle it," and Git leaves the conflict markers for you.
 
 So yeah, that's the behind-the-scenes tea on how `rizzler` becomes your automated merge conflict wingman.
+
+## 🔄 Continuous Integration & Deployment
+
+Rizzler uses GitHub Actions for CI/CD to ensure code quality and streamline releases:
+
+### CI Pipeline
+
+- **Pull Requests:** Every PR triggers builds on Linux, macOS, and Windows platforms to ensure cross-platform compatibility.
+- **Testing:** The CI pipeline runs all tests to ensure new changes don't break existing functionality.
+- **Trunk branch:** When code is pushed to the `trunk` branch, the pipeline builds the application and automatically creates a new GitHub release with compiled binaries for all supported platforms.
+
+### Artifacts
+
+The CI pipeline produces the following artifacts:
+- `rizzler-linux` - Linux x86_64 binary
+- `rizzler-macos` - macOS x86_64 binary
+- `rizzler-windows.exe` - Windows x86_64 executable
+
+These artifacts are attached to GitHub releases (on `trunk` branch pushes) and can be downloaded directly from the releases page.
 
 ## ⚙️ Dial in the Settings: Configuration
 

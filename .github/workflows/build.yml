@@ -1,0 +1,125 @@
+name: Build and Release
+
+on:
+  pull_request:
+    branches: [ '*' ]
+  push:
+    branches: [ 'trunk' ]
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: rizzler-linux
+            asset_name: rizzler-linux
+          - os: macos-latest
+            artifact_name: rizzler-macos
+            asset_name: rizzler-macos
+          - os: windows-latest
+            artifact_name: rizzler-windows.exe
+            asset_name: rizzler-windows
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release
+
+    - name: Run tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --release
+
+    - name: Prepare artifact (Linux/macOS)
+      if: matrix.os != 'windows-latest'
+      run: |
+        cp target/release/rizzler ${{ matrix.artifact_name }}
+
+    - name: Prepare artifact (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        copy target\release\rizzler.exe ${{ matrix.artifact_name }}
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.asset_name }}
+        path: ${{ matrix.artifact_name }}
+
+  release:
+    name: Create Release
+    needs: build
+    if: github.ref == 'refs/heads/trunk'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download Linux artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: rizzler-linux
+        path: ./artifacts
+
+    - name: Download macOS artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: rizzler-macos
+        path: ./artifacts
+
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: rizzler-windows
+        path: ./artifacts
+
+    - name: Make Linux and macOS artifacts executable
+      run: chmod +x ./artifacts/rizzler-linux ./artifacts/rizzler-macos
+
+    - name: Generate version
+      id: version
+      run: echo "version=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        name: Release v${{ steps.version.outputs.version }}
+        draft: false
+        prerelease: false
+        files: |
+          ./artifacts/rizzler-linux
+          ./artifacts/rizzler-macos
+          ./artifacts/rizzler-windows.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

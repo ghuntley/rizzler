@@ -1,0 +1,20 @@
+name: Test Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run test command
+        run: |
+          echo "Testing GitHub Actions workflow configuration"
+          rustc --version || echo "Rust not installed"
+      
+      - name: Verify workflow structure
+        run: |
+          ls -la .github/workflows/
+          cat .github/workflows/build.yml 
