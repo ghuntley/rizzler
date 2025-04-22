@@ -26,7 +26,7 @@ pub struct ConflictRegion {
 }
 
 /// A file with one or more conflict regions
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConflictFile {
     /// Path to the file
     pub path: String,

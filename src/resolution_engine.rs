@@ -73,6 +73,7 @@ pub struct ResolutionResult {
 pub struct ResolutionEngine {
     strategies: Vec<Box<dyn ResolutionStrategy>>,
     config: Config,
+    file_resolution_handler: Option<Box<dyn Fn(&ConflictFile) -> Option<Box<dyn ResolutionStrategy>>>>,
 }
 
 impl ResolutionEngine {
@@ -88,6 +89,7 @@ impl ResolutionEngine {
         let mut engine = ResolutionEngine {
             strategies: Vec::new(),
             config,
+            file_resolution_handler: None,
         };
         
         // Add rule-based strategies
@@ -103,6 +105,16 @@ impl ResolutionEngine {
             engine.add_strategy(Box::new(ai_strategy));
         }
         
+        // Special handling for file-based resolution strategies for conflicted files
+        engine.add_file_resolution_handler(|conflict_file| {
+            if let Ok(ai_strategy) = crate::ai_resolution::AIResolutionStrategyWithFile::new(conflict_file) {
+                info!("Using AI resolution strategy with full file context for better results");
+                Some(Box::new(ai_strategy) as Box<dyn crate::resolution_engine::ResolutionStrategy>)
+            } else {
+                None
+            }
+        });
+        
         engine
     }
     
@@ -110,6 +122,15 @@ impl ResolutionEngine {
     pub fn add_strategy(&mut self, strategy: Box<dyn ResolutionStrategy>) {
         info!("Adding resolution strategy: {}", strategy.name());
         self.strategies.push(strategy);
+    }
+    
+    /// Add a file resolution handler function that can create a strategy based on the whole file
+    pub fn add_file_resolution_handler<F>(&mut self, handler: F) 
+    where
+        F: Fn(&ConflictFile) -> Option<Box<dyn ResolutionStrategy>> + 'static,
+    {
+        info!("Adding file resolution handler for context-aware conflict resolution");
+        self.file_resolution_handler = Some(Box::new(handler));
     }
     
     /// Get the appropriate strategy for a file based on its type/extension
@@ -127,6 +148,68 @@ impl ResolutionEngine {
         let mut resolved_count = 0;
         let mut unresolved_count = 0;
         let mut strategy_name = "none".to_string();
+        
+        // First check if we have a file resolution handler that can provide a context-aware strategy
+        if let Some(handler) = &self.file_resolution_handler {
+            if let Some(file_strategy) = handler(conflict_file) {
+                debug!("Using file resolution handler with strategy: {}", file_strategy.name());
+                
+                // Process each conflict region with the file-aware strategy
+                let mut all_resolved = true;
+                for conflict in &conflict_file.conflicts {
+                    if file_strategy.can_handle(conflict) {
+                        match file_strategy.resolve_conflict(conflict) {
+                            Ok(resolved_content) => {
+                                // Use the same content replacement logic as below
+                                // Extract the actual conflict marker pattern from the file content
+                                let conflict_start = conflict.start_line - 1; // 0-indexed
+                                let conflict_end = conflict.end_line; // 0-indexed, line after the conflict
+                                
+                                let conflict_lines: Vec<&str> = content.lines().collect();
+                                if conflict_end <= conflict_lines.len() {
+                                    let actual_conflict = &conflict_lines[conflict_start..conflict_end].join("\n");
+                                    debug!("Actual conflict in file: {}\n", actual_conflict);
+                                    
+                                    // Replace the conflict with the resolved content
+                                    content = content.replace(actual_conflict, &resolved_content);
+                                    resolved_count += 1;
+                                } else {
+                                    all_resolved = false;
+                                    unresolved_count += 1;
+                                    warn!("Invalid conflict line range: {} to {} (content has {} lines)", 
+                                          conflict_start, conflict_end, conflict_lines.len());
+                                }
+                            },
+                            Err(err) => {
+                                all_resolved = false;
+                                unresolved_count += 1;
+                                warn!("File-aware strategy '{}' failed to resolve conflict: {}", file_strategy.name(), err);
+                            }
+                        }
+                    } else {
+                        all_resolved = false;
+                        unresolved_count += 1;
+                    }
+                }
+                
+                // If all conflicts were resolved, return the result
+                if all_resolved && unresolved_count == 0 {
+                    return Ok(ResolutionResult {
+                        path: conflict_file.path.clone(),
+                        content,
+                        resolved_count,
+                        unresolved_count,
+                        strategy_name: file_strategy.name().to_string(),
+                    });
+                }
+                
+                // Otherwise, we'll fall back to individual conflict resolution strategies
+                debug!("File-aware strategy did not resolve all conflicts, falling back to regular strategies");
+            }
+        }
+        
+        // If no file resolution handler or it couldn't resolve all conflicts,
+        // fall back to traditional strategy-by-strategy conflict resolution
         
         // First try to get the configured strategy for this file type
         let file_specific_strategy = self.get_strategy_for_file(&conflict_file.path);
