@@ -86,24 +86,30 @@ Okay, so how does `rizzler` actually get triggered by Git? It's not *actual* mag
 
 So yeah, that's the behind-the-scenes tea on how `rizzler` becomes your automated merge conflict wingman.
 
-## 🔄 Continuous Integration & Deployment
+## 🚨 Heads Up: Safety & The Real Tea 🚨
 
-Rizzler uses GitHub Actions for CI/CD to ensure code quality and streamline releases:
+Okay, fam, let's keep it 💯. `rizzler` is cool, but AI ain't magic (yet!).
 
-### CI Pipeline
+*   **No Cap, It's Not Actually Reading Code:** Neither `rizzler` nor the big brain AIs (GPT, Claude, etc.) *truly* understand your code like a compiler or interpreter does. They don't get the deep logic, the Abstract Syntax Tree (AST), or the semantic meaning. They're basically super-powered pattern matchers, guessing based on tons of text they've seen. Sometimes this guess is fire, sometimes it's... not. 🔥 vs 🗑️
 
-- **Pull Requests:** Every PR triggers builds on Linux, macOS, and Windows platforms to ensure cross-platform compatibility.
-- **Testing:** The CI pipeline runs all tests to ensure new changes don't break existing functionality.
-- **Trunk branch:** When code is pushed to the `trunk` branch, the pipeline builds the application and automatically creates a new GitHub release with compiled binaries for all supported platforms.
+*   **The Ghost of `goto fail;`:** Remember that time Apple had a *massive* security flaw in their SSL/TLS code back in 2014? It was literally because of a duplicated `goto fail;` line. Like this (oversimplified):
+    ```c
+    if ((err = SSLHashSHA1.update(&hashCtx, &serverRandom)) != 0)
+        goto fail;
+    if ((err = SSLHashSHA1.update(&hashCtx, &signedParams)) != 0)
+        goto fail;
+        goto fail; // <--- 💀 THIS EXTRA LINE SKIPPED THE VERIFICATION!!!
+    if ((err = SSLHashSHA1.final(&hashCtx, &hashOut)) != 0)
+        goto fail;
+    // ... crucial signature verification code ...
+    fail:
+        // ... error handling ...
+    ```
+    A tiny, almost invisible change (maybe even something an auto-formatter *might* do weirdly, or an AI *might* hallucinate in a merge) completely broke critical security checks. This is the kind of subtle-but-deadly bug that purely text-based merging (like what AI does *now*) can accidentally introduce because it doesn't understand the *consequences* of the code structure.
 
-### Artifacts
+*   **Recommendation Station:** Because of this, we strongly advise **NOT** running `rizzler` blindly on your main production branches (`main`, `master`, `trunk`, whatever your vibe is). It's giving... risky. 😬 Instead, use `rizzler` for the lower-stakes game: resolving conflicts when **rebasing** your feature branch *from* the main branch. Get your local branch up-to-date, let `rizzler` handle the rebase conflicts, **review the changes carefully**, and *then* merge your clean feature branch.
 
-The CI pipeline produces the following artifacts:
-- `rizzler-linux` - Linux x86_64 binary
-- `rizzler-macos` - macOS x86_64 binary
-- `rizzler-windows.exe` - Windows x86_64 executable
-
-These artifacts are attached to GitHub releases (on `trunk` branch pushes) and can be downloaded directly from the releases page.
+*   **The Glow-Up Goal:** We *want* `rizzler` to be smarter! The dream is proper **semantic merging** – understanding the code structure (AST) to make safer merges. AI could then be a fallback or assistant for the really tricky bits. Wanna help build this? Check out [CONTRIBUTING.md](CONTRIBUTING.md)! We'd love the help. ✨
 
 ## ⚙️ Dial in the Settings: Configuration
 
