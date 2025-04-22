@@ -145,14 +145,77 @@ impl ResolutionEngine {
                     match strategy.resolve_conflict(conflict) {
                         Ok(resolved_content) => {
                             // Replace the conflict with the resolved content
-                            content = content.replace(
-                                &format!(
-                                    "<<<<<<< HEAD\n{}=======\n{}>>>>>>> branch-name",
-                                    conflict.our_content,
-                                    conflict.their_content
-                                ),
-                                &resolved_content
-                            );
+                            // Try to find the branch name from the conflict markers in the whole content
+                            let mut branch_name = "branch-name";
+                            
+                            // Look for any >>>>>>> lines to get the branch name
+                            for line in content.lines() {
+                                if line.starts_with(">>>>>>> ") {
+                                    branch_name = line.trim_start_matches(">>>>>>> ");
+                                    debug!("Found branch name from content: {}", branch_name);
+                                    break;
+                                }
+                            }
+                            
+                            // Also check if we can find the branch name in the conflict regions
+                            for conflict in &conflict_file.conflicts {
+                                if conflict.end_line <= content.lines().count() {
+                                    if let Some(line) = content.lines().nth(conflict.end_line - 1) {
+                                        if line.starts_with(">>>>>>> ") {
+                                            branch_name = line.trim_start_matches(">>>>>>> ");
+                                            debug!("Found branch name from conflict region: {}", branch_name);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Try first with the exact text including line breaks
+                            let conflict_pattern = format!("<<<<<<< HEAD\n{}=======\n{}>>>>>>> {}", 
+                                                      conflict.our_content, conflict.their_content, branch_name);
+                            
+                            debug!("Attempting to match exact conflict pattern of {} chars", conflict_pattern.len());
+                            
+                            // First try with the exact pattern
+                            let content_before = content.clone();
+                            content = content.replace(&conflict_pattern, &resolved_content);
+                            
+                            // If no replacement happened, try a more flexible pattern search
+                            if content == content_before {
+                                debug!("Exact pattern match failed, trying with partial matching");
+                                
+                                // Try to find the conflict lines approximately
+                                let mut found = false;
+                                // Create a new string to search in
+                                let content_str = content.clone();
+                                let lines: Vec<&str> = content_str.lines().collect();
+                                
+                                // Find the conflict boundaries
+                                let mut conflict_start_idx = 0;
+                                let mut conflict_end_idx = 0;
+                                
+                                for i in 0..lines.len() {
+                                    if lines[i].contains("<<<<<<< HEAD") {
+                                        conflict_start_idx = i;
+                                        for j in i+1..lines.len() {
+                                            if lines[j].contains(">>>>>>> ") {
+                                                conflict_end_idx = j;
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                        if found {
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if found {
+                                    let actual_conflict = lines[conflict_start_idx..=conflict_end_idx].join("\n");
+                                    debug!("Found approximate conflict pattern: {} chars", actual_conflict.len());
+                                    content = content.replace(&actual_conflict, &resolved_content);
+                                }
+                            }
                             
                             resolved_count += 1;
                             resolved = true;
@@ -175,14 +238,136 @@ impl ResolutionEngine {
                         match strategy.resolve_conflict(conflict) {
                             Ok(resolved_content) => {
                                 // Replace the conflict with the resolved content
-                                content = content.replace(
-                                    &format!(
-                                        "<<<<<<< HEAD\n{}=======\n{}>>>>>>> branch-name",
-                                        conflict.our_content,
-                                        conflict.their_content
-                                    ),
-                                    &resolved_content
-                                );
+                                debug!("Replacing conflict:\n  Original: <<<<<<< HEAD\n{}=======\n{}>>>>>>> branch-name", conflict.our_content, conflict.their_content);
+                                debug!("  Will replace with: {}", resolved_content);
+                                
+                                // Extract the actual conflict marker pattern from the file content
+                                let conflict_start = conflict.start_line - 1; // 0-indexed
+                                let conflict_end = conflict.end_line; // 0-indexed, line after the conflict
+                                
+                                let conflict_lines: Vec<&str> = content.lines().collect();
+                                if conflict_end <= conflict_lines.len() {
+                                    let actual_conflict = &conflict_lines[conflict_start..conflict_end].join("\n");
+                                    debug!("Actual conflict in file: {}\n", actual_conflict);
+                                    
+                                    // Extract the branch name from the conflict marker
+                                let branch_name = if let Some(line) = conflict_lines.get(conflict_end - 1) {
+                                    if line.starts_with(">>>>>>> ") {
+                                        line.trim_start_matches(">>>>>>> ").to_string()
+                                    } else {
+                                        "branch-name".to_string() // fallback
+                                    }
+                                } else {
+                                    "branch-name".to_string() // fallback
+                                };
+                                
+                                debug!("Using branch name: {}", branch_name);
+                                
+                                // Try with actual conflict first
+                                // Try direct replacement first
+                            let content_before = content.clone();
+                            content = content.replace(actual_conflict, &resolved_content);
+                            
+                            // If no replacement happened, try a more flexible pattern search
+                            if content == content_before {
+                                debug!("Exact conflict replacement failed, trying with partial matching");
+                                
+                                // Try to find the conflict lines approximately
+                                let mut found = false;
+                                // Create a new string to search in
+                                let content_str = content.clone();
+                                let lines: Vec<&str> = content_str.lines().collect();
+                                
+                                // Find the conflict boundaries
+                                let mut conflict_start_idx = 0;
+                                let mut conflict_end_idx = 0;
+                                
+                                for i in 0..lines.len() {
+                                    if lines[i].contains("<<<<<<< HEAD") {
+                                        conflict_start_idx = i;
+                                        for j in i+1..lines.len() {
+                                            if lines[j].contains(">>>>>>> ") {
+                                                conflict_end_idx = j;
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                        if found {
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if found {
+                                    let actual_conflict = lines[conflict_start_idx..=conflict_end_idx].join("\n");
+                                    debug!("Found approximate conflict pattern: {} chars", actual_conflict.len());
+                                    content = content.replace(&actual_conflict, &resolved_content);
+                                }
+                            }
+                                    debug!("After replacement, content length: {}", content.len());
+                                } else {
+                                    warn!("Invalid conflict line range: {} to {} (content has {} lines)", 
+                                          conflict_start, conflict_end, conflict_lines.len());
+                                    // Fall back to old method
+                                    // Try to find the branch name from the conflict markers in the whole content
+                                    let mut branch_name = "branch-name";
+                                    
+                                    // Look for any >>>>>>> lines to get the branch name
+                                    for line in content.lines() {
+                                        if line.starts_with(">>>>>>> ") {
+                                            branch_name = line.trim_start_matches(">>>>>>> ");
+                                            debug!("Found branch name from content: {}", branch_name);
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // Try first with the exact text including line breaks
+                                    let conflict_pattern = format!("<<<<<<< HEAD\n{}=======\n{}>>>>>>> {}", 
+                                                              conflict.our_content, conflict.their_content, branch_name);
+                                    
+                                    debug!("Attempting to match exact conflict pattern of {} chars", conflict_pattern.len());
+                                    
+                                    // First try with the exact pattern
+                                    let content_before = content.clone();
+                                    content = content.replace(&conflict_pattern, &resolved_content);
+                                    
+                                    // If no replacement happened, try a more flexible pattern search
+                                    if content == content_before {
+                                        debug!("Exact pattern match failed, trying with partial matching");
+                                        
+                                        // Try to find the conflict lines approximately
+                                        let mut found = false;
+                                        // Create a new string to search in
+                                        let content_str = content.clone();
+                                        let lines: Vec<&str> = content_str.lines().collect();
+                                        
+                                        // Find the conflict boundaries
+                                        let mut conflict_start_idx = 0;
+                                        let mut conflict_end_idx = 0;
+                                        
+                                        for i in 0..lines.len() {
+                                            if lines[i].contains("<<<<<<< HEAD") {
+                                                conflict_start_idx = i;
+                                                for j in i+1..lines.len() {
+                                                    if lines[j].contains(">>>>>>> ") {
+                                                        conflict_end_idx = j;
+                                                        found = true;
+                                                        break;
+                                                    }
+                                                }
+                                                if found {
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        
+                                        if found {
+                                            let actual_conflict = lines[conflict_start_idx..=conflict_end_idx].join("\n");
+                                            debug!("Found approximate conflict pattern: {} chars", actual_conflict.len());
+                                            content = content.replace(&actual_conflict, &resolved_content);
+                                        }
+                                    }
+                                }
                                 
                                 resolved_count += 1;
                                 resolved = true;
@@ -242,14 +427,47 @@ impl ResolutionEngine {
                 match strategy.resolve_conflict(conflict) {
                     Ok(resolved_content) => {
                         // Replace the conflict with the resolved content
-                        content = content.replace(
-                            &format!(
-                                "<<<<<<< HEAD\n{}=======\n{}>>>>>>> branch-name",
-                                conflict.our_content,
-                                conflict.their_content
-                            ),
-                            &resolved_content
-                        );
+                        debug!("Replacing conflict for explicit strategy:\n  Original: <<<<<<< HEAD\n{}=======\n{}>>>>>>> branch-name", conflict.our_content, conflict.their_content);
+                        debug!("  Will replace with: {}", resolved_content);
+                        
+                        // Extract the actual conflict marker pattern from the file content
+                        let conflict_start = conflict.start_line - 1; // 0-indexed
+                        let conflict_end = conflict.end_line; // 0-indexed, line after the conflict
+                        
+                        let conflict_lines: Vec<&str> = content.lines().collect();
+                        if conflict_end <= conflict_lines.len() {
+                            let actual_conflict = &conflict_lines[conflict_start..conflict_end].join("\n");
+                            debug!("Actual conflict in file: {}\n", actual_conflict);
+                            
+                            // Extract the branch name from the conflict marker
+                            let branch_name = if let Some(line) = conflict_lines.get(conflict_end - 1) {
+                                if line.starts_with(">>>>>>> ") {
+                                    line.trim_start_matches(">>>>>>> ").to_string()
+                                } else {
+                                    "branch-name".to_string() // fallback
+                                }
+                            } else {
+                                "branch-name".to_string() // fallback
+                            };
+                            
+                            debug!("Using branch name: {}", branch_name);
+                            
+                            // Try with actual conflict first
+                            content = content.replace(actual_conflict, &resolved_content);
+                            debug!("After replacement, content length: {}", content.len());
+                        } else {
+                            warn!("Invalid conflict line range: {} to {} (content has {} lines)", 
+                                  conflict_start, conflict_end, conflict_lines.len());
+                            // Fall back to old method
+                            content = content.replace(
+                                &format!(
+                                    "<<<<<<< HEAD\n{}=======\n{}>>>>>>> branch-name",
+                                    conflict.our_content,
+                                    conflict.their_content
+                                ),
+                                &resolved_content
+                            );
+                        }
                         
                         resolved_count += 1;
                     }

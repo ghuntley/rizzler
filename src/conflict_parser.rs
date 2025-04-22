@@ -124,7 +124,10 @@ pub fn parse_conflict_file(path: &str) -> Result<ConflictFile, ConflictParseErro
         
         if in_conflict {
             // We're in a conflict region, add the line to the appropriate content
-            if our_content.is_empty() && their_content.is_empty() {
+            if line.starts_with("=======") {
+                // This is the separator line, so switch to "their" content
+                continue;
+            } else if our_content.is_empty() && their_content.is_empty() {
                 // We haven't seen the separator yet, so this is "our" content
                 our_content.push_str(&line);
                 our_content.push('\n');
