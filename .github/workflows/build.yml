@@ -83,6 +83,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Git
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+
+    - name: Generate version
+      id: version
+      run: echo "version=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+      
+    - name: Update Cargo.toml version
+      id: bump_version
+      run: |
+        # Extract current version
+        CURRENT_VERSION=$(grep -m 1 "version = " Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+        echo "Current version: $CURRENT_VERSION"
+        
+        # Split version into parts
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+        
+        # Increment patch version
+        NEW_PATCH=$((PATCH + 1))
+        NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+        echo "New version: $NEW_VERSION"
+        
+        # Update Cargo.toml
+        sed -i "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" Cargo.toml
+        
+        # Set output variables
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "release_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Commit and push version bump
+      run: |
+        git add Cargo.toml
+        git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }} [skip ci]"
+        git push
 
     - name: Download Linux artifact
       uses: actions/download-artifact@v3
@@ -105,16 +145,12 @@ jobs:
     - name: Make Linux and macOS artifacts executable
       run: chmod +x ./artifacts/rizzler-linux ./artifacts/rizzler-macos
 
-    - name: Generate version
-      id: version
-      run: echo "version=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
-
     - name: Create Release
       id: create_release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: v${{ steps.version.outputs.version }}
-        name: Release v${{ steps.version.outputs.version }}
+        tag_name: ${{ steps.bump_version.outputs.release_tag }}
+        name: Release ${{ steps.bump_version.outputs.release_tag }}
         draft: false
         prerelease: false
         files: |

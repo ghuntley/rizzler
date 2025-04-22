@@ -42,8 +42,9 @@ The release job is conditionally executed only for the trunk branch:
 - **Steps:**
   1. Download artifacts from all platforms
   2. Make Linux and macOS binaries executable
-  3. Generate a release version (timestamp-based)
-  4. Create a GitHub Release with all artifacts attached
+  3. Update version in Cargo.toml (incrementing patch version)
+  4. Commit and push the version bump back to the repository
+  5. Create a GitHub Release with all artifacts attached
 
 ## Artifacts
 
@@ -55,11 +56,19 @@ The following artifacts are produced by the CI/CD pipeline:
 
 ## Release Versioning
 
-Releases are automatically versioned using a timestamp-based scheme:
-- Format: `v{YYYYMMDDHHMMSS}`
-- Example: `v20240601120530`
+Releases use semantic versioning maintained automatically in two ways:
 
-This ensures unique versioning for each automatic release from the trunk branch.
+1. **Cargo.toml Versioning:**
+   - The patch version is automatically incremented on every trunk build
+   - Format: `MAJOR.MINOR.PATCH` (e.g., `0.1.2`)
+   - The updated version is committed back to the repository
+   - This is used as the official version of the application
+
+2. **Release Tag Format:**
+   - GitHub releases are tagged with the updated Cargo.toml version
+   - Format: `v{MAJOR.MINOR.PATCH}` (e.g., `v0.1.2`)
+
+This ensures proper version tracking for both the code and the released artifacts.
 
 ## Implementation
 
