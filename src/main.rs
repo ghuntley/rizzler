@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 use clap::{Parser, Subcommand};
-use git_merge_ai_resolver::{Config, conflict_parser, git_integration, git_setup};
+use rizzler::{Config, conflict_parser, git_integration, git_setup, ResolutionEngine, DiagnosticStatus, write_diagnostic_results, run_diagnostics, format_diagnostic_results};
 use std::env;
 use std::process;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
 
 #[derive(Parser)]
-#[command(name = "git-merge-ai-resolver")]
+#[command(name = "rizzler")]
 #[command(about = "AI-powered Git merge conflict resolver")]
 #[command(version)]
 struct Cli {
@@ -19,7 +19,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Configure git-merge-ai-resolver as a merge driver in Git
+    /// Configure rizzler as a merge driver in Git
     Setup(SetupArgs),
     
     /// View and modify configuration settings
@@ -112,17 +112,17 @@ struct DoctorArgs {
 
 fn setup_logging() {
     // Get the global configuration (or use default if not available)
-    let config = git_merge_ai_resolver::Config::load_global().unwrap_or_default();
+    let config = Config::load_global().unwrap_or_default();
     
     // Get log level from environment, config, or use default
-    let log_level = std::env::var("GIT_MERGE_LOG_LEVEL")
+    let log_level = std::env::var("RIZZLER_LOG_LEVEL")
         .unwrap_or_else(|_| config.logging.level.clone());
         
-    let filter = EnvFilter::try_from_env("GIT_MERGE_LOG_LEVEL")
+    let filter = EnvFilter::try_from_env("RIZZLER_LOG_LEVEL")
         .unwrap_or_else(|_| EnvFilter::new(&log_level));
     
     // Check if log file path is specified in environment or config
-    let log_file = std::env::var("GIT_MERGE_LOG_FILE")
+    let log_file = std::env::var("RIZZLER_LOG_FILE")
         .ok()
         .or(config.logging.file.clone());
     
@@ -147,7 +147,7 @@ fn setup_logging() {
         let file_appender = RollingFileAppender::new(
             rotation,
             std::path::Path::new(&log_file).parent().unwrap_or_else(|| std::path::Path::new(".")),
-            std::path::Path::new(&log_file).file_name().unwrap_or_else(|| std::ffi::OsStr::new("git-merge-ai-resolver.log")),
+            std::path::Path::new(&log_file).file_name().unwrap_or_else(|| std::ffi::OsStr::new("rizzler.log")),
         );
         
         // Create a non-blocking writer for better performance
@@ -193,19 +193,19 @@ fn main() {
     
     match &cli.command {
         Some(Commands::Setup(args)) => {
-            info!("Setting up git-merge-ai-resolver as a Git merge driver");
+            info!("Setting up rizzler as a Git merge driver");
             
             // Execute the setup
             match git_setup::setup_git_integration(args.global, args.local, &args.extensions, args.dry_run) {
                 Ok(_) => {
-                    println!("Successfully set up git-merge-ai-resolver as a Git merge driver");
+                    println!("Successfully set up rizzler as a Git merge driver");
                     if args.global {
                         println!("Configured globally in user's .gitconfig");
                     } else {
                         println!("Configured locally for current repository");
                     }
                     println!("File extensions configured: {:?}", args.extensions);
-                    println!("You can now use git-merge-ai-resolver to resolve merge conflicts in these file types");
+                    println!("You can now use rizzler to resolve merge conflicts in these file types");
                 },
                 Err(err) => {
                     error!("Setup failed: {}", err);
@@ -297,8 +297,8 @@ fn main() {
             
             println!("Found {} conflicts in file", conflict_file.conflicts.len());
             
-            // Create resolution engine
-            let engine = git_merge_ai_resolver::resolution_engine::ResolutionEngine::new();
+            // Create resolution engine using re-exported path
+            let engine = ResolutionEngine::new();
             
             // Resolve conflicts
             let resolution_result = match args.strategy.as_deref() {
@@ -344,21 +344,22 @@ fn main() {
             }
         }
         Some(Commands::Version) => {
-            println!("git-merge-ai-resolver version {}", env!("CARGO_PKG_VERSION"));
+            println!("rizzler version {}", env!("CARGO_PKG_VERSION"));
         }
         Some(Commands::Doctor(args)) => {
             info!("Running diagnostics");
             
-            // Run all diagnostic checks
-            let results = git_merge_ai_resolver::diagnostics::run_diagnostics();
+            // Run all diagnostic checks - use directly imported function
+            let results = run_diagnostics();
             
-            // Format and display results
-            let formatted_results = git_merge_ai_resolver::diagnostics::format_diagnostic_results(&results);
+            // Format and display results - use directly imported function
+            let formatted_results = format_diagnostic_results(&results);
             println!("{}", formatted_results);
             
             // Write results to file if specified
             if let Some(output_file) = &args.output_file {
-                match git_merge_ai_resolver::diagnostics::write_diagnostic_results(&results, Some(output_file)) {
+                // Use the directly imported function
+                match write_diagnostic_results(&results, Some(output_file)) {
                     Ok(_) => {
                         println!("Diagnostic results written to {}", output_file);
                     },
@@ -370,7 +371,8 @@ fn main() {
             }
             
             // Exit with error code if any checks failed
-            let fail_count = results.iter().filter(|r| r.status == git_merge_ai_resolver::diagnostics::DiagnosticStatus::Fail).count();
+            // Use re-exported path for DiagnosticStatus
+            let fail_count = results.iter().filter(|r| r.status == DiagnosticStatus::Fail).count();
             if fail_count > 0 {
                 process::exit(1);
             }
