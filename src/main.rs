@@ -286,6 +286,16 @@ fn main() {
                     println!("\nLogging Configuration:");
                     println!("  logging.level: {}", config.logging.level);
                     println!("  logging.file: {}", config.logging.file.as_deref().unwrap_or("<not set>"));
+                    println!("  logging.rotation.frequency: {}", config.logging.rotation.frequency);
+                    println!("  logging.rotation.max_files: {}", config.logging.rotation.max_files);
+                    println!("  logging.rotation.max_file_size: {}", config.logging.rotation.max_file_size);
+                    
+                    println!("\nGit Configuration:");
+                    if !config.git.file_extensions.is_empty() {
+                        println!("  File extensions: {:?}", config.git.file_extensions);
+                    } else {
+                        println!("  No file extensions configured");
+                    }
                 }
                 None => {
                     println!("Use 'config get', 'config set', or 'config list'");

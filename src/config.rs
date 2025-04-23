@@ -290,41 +290,65 @@ impl Config {
         };
         
         // Try to get AI provider configuration using Git's simpler key format
-        if let Some(value) = get_git_config("merge-ai-resolver.default-provider") {
+        if let Some(value) = get_git_config("rizzler.default-provider") {
             self.ai_provider.default_provider = Some(value);
         }
         
-        if let Some(value) = get_git_config("merge-ai-resolver.default-model") {
+        if let Some(value) = get_git_config("rizzler.default-model") {
             self.ai_provider.default_model = Some(value);
         }
         
-        if let Some(value) = get_git_config("merge-ai-resolver.system-prompt") {
+        if let Some(value) = get_git_config("rizzler.system-prompt") {
             self.ai_provider.system_prompt = Some(value);
         }
         
-        if let Some(value) = get_git_config("merge-ai-resolver.timeout-seconds") {
+        if let Some(value) = get_git_config("rizzler.timeout-seconds") {
             if let Ok(timeout) = value.parse::<u64>() {
                 self.ai_provider.timeout_seconds = timeout;
             }
         }
         
         // Resolution configuration
-        if let Some(value) = get_git_config("merge-ai-resolver.resolution.default_strategy") {
+        if let Some(value) = get_git_config("rizzler.resolution.default_strategy") {
             self.resolution.default_strategy = value;
         }
         
         // Logging configuration
-        if let Some(value) = get_git_config("merge-ai-resolver.logging.level") {
+        if let Some(value) = get_git_config("rizzler.logging.level") {
             self.logging.level = value;
         }
         
-        if let Some(value) = get_git_config("merge-ai-resolver.logging.file") {
+        if let Some(value) = get_git_config("rizzler.logging.file") {
             self.logging.file = Some(value);
+        }
+        
+        // Logging rotation configuration
+        if let Some(value) = get_git_config("rizzler.logging.rotation.frequency") {
+            self.logging.rotation.frequency = value;
+        }
+        
+        if let Some(value) = get_git_config("rizzler.logging.rotation.max_files") {
+            if let Ok(max_files) = value.parse::<usize>() {
+                self.logging.rotation.max_files = max_files;
+            }
+        }
+        
+        if let Some(value) = get_git_config("rizzler.logging.rotation.max_file_size") {
+            self.logging.rotation.max_file_size = value;
+        }
+        
+        // Git file extensions
+        if let Some(value) = get_git_config("rizzler.git.file_extensions") {
+            self.git.file_extensions = value
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
         }
         
         // For extension strategies, we need to list all keys with the extension_strategy prefix
         let output = std::process::Command::new("git")
-            .args(["config", "--get-regexp", r"^merge-ai-resolver.extension_strategy."])
+            .args(["config", "--get-regexp", r"^rizzler.extension_strategy."])
             .output();
         
         if let Ok(output) = output {
@@ -333,7 +357,7 @@ impl Config {
                 
                 for line in output_str.lines() {
                     if let Some((key, value)) = line.split_once(' ') {
-                        if let Some(extension) = key.strip_prefix("merge-ai-resolver.extension_strategy.") {
+                        if let Some(extension) = key.strip_prefix("rizzler.extension_strategy.") {
                             self.resolution.extension_strategies.insert(extension.to_string(), value.trim().to_string());
                             debug!("Added extension strategy mapping from Git config: {} -> {}", extension, value.trim());
                         }
@@ -375,6 +399,30 @@ impl Config {
             self.logging.file = Some(file);
         }
         
+        // Logging rotation configuration
+        if let Ok(frequency) = env::var("RIZZLER_LOG_ROTATION_FREQUENCY") {
+            self.logging.rotation.frequency = frequency;
+        }
+        
+        if let Ok(max_files) = env::var("RIZZLER_LOG_ROTATION_MAX_FILES") {
+            if let Ok(max_files) = max_files.parse::<usize>() {
+                self.logging.rotation.max_files = max_files;
+            }
+        }
+        
+        if let Ok(max_file_size) = env::var("RIZZLER_LOG_ROTATION_MAX_FILE_SIZE") {
+            self.logging.rotation.max_file_size = max_file_size;
+        }
+        
+        // Git file extensions
+        if let Ok(extensions) = env::var("RIZZLER_GIT_FILE_EXTENSIONS") {
+            self.git.file_extensions = extensions
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
+        
         // Resolution configuration
         if let Ok(strategy) = env::var("RIZZLER_DEFAULT_STRATEGY") {
             self.resolution.default_strategy = strategy;
@@ -396,13 +444,33 @@ impl Config {
     /// Get a configuration value by key
     pub fn get(&self, key: &str) -> Option<String> {
         match key {
+            // AI Provider
             "ai_provider.default_provider" => self.ai_provider.default_provider.clone(),
             "ai_provider.default_model" => self.ai_provider.default_model.clone(),
             "ai_provider.system_prompt" => self.ai_provider.system_prompt.clone(),
             "ai_provider.timeout_seconds" => Some(self.ai_provider.timeout_seconds.to_string()),
+            
+            // Resolution
             "resolution.default_strategy" => Some(self.resolution.default_strategy.clone()),
+            
+            // Logging
             "logging.level" => Some(self.logging.level.clone()),
             "logging.file" => self.logging.file.clone(),
+            "logging.rotation.frequency" => Some(self.logging.rotation.frequency.clone()),
+            "logging.rotation.max_files" => Some(self.logging.rotation.max_files.to_string()),
+            "logging.rotation.max_file_size" => Some(self.logging.rotation.max_file_size.clone()),
+            
+            // Git
+            "git.file_extensions" => Some(format!("{:?}", self.git.file_extensions)),
+            
+            // Extension strategies
+            key if key.starts_with("resolution.extension_strategies.") => {
+                if let Some(extension) = key.strip_prefix("resolution.extension_strategies.") {
+                    self.resolution.extension_strategies.get(extension).cloned()
+                } else {
+                    None
+                }
+            },
             _ => None,
         }
     }
@@ -410,28 +478,54 @@ impl Config {
     /// Set a configuration value by key
     pub fn set(&mut self, key: &str, value: &str) -> Result<(), ConfigError> {
         match key {
-            "ai_provider.default_provider" | "merge-ai-resolver.default-provider" => self.ai_provider.default_provider = Some(value.to_string()),
-            "ai_provider.default_model" | "merge-ai-resolver.default-model" => self.ai_provider.default_model = Some(value.to_string()),
-            "ai_provider.system_prompt" | "merge-ai-resolver.system-prompt" => self.ai_provider.system_prompt = Some(value.to_string()),
-            "ai_provider.timeout_seconds" | "merge-ai-resolver.timeout-seconds" => {
+            // AI Provider
+            "ai_provider.default_provider" | "rizzler.default-provider" => self.ai_provider.default_provider = Some(value.to_string()),
+            "ai_provider.default_model" | "rizzler.default-model" => self.ai_provider.default_model = Some(value.to_string()),
+            "ai_provider.system_prompt" | "rizzler.system-prompt" => self.ai_provider.system_prompt = Some(value.to_string()),
+            "ai_provider.timeout_seconds" | "rizzler.timeout-seconds" => {
                 if let Ok(timeout) = value.parse::<u64>() {
                     self.ai_provider.timeout_seconds = timeout;
                 } else {
                     return Err(ConfigError::InvalidConfig(format!("Invalid timeout value: {}", value)));
                 }
             },
-            "resolution.default_strategy" | "merge-ai-resolver.resolution.default_strategy" => self.resolution.default_strategy = value.to_string(),
-            "logging.level" | "merge-ai-resolver.logging.level" => self.logging.level = value.to_string(),
-            "logging.file" | "merge-ai-resolver.logging.file" => self.logging.file = Some(value.to_string()),
-            _ => {
-                // Check if it's an extension strategy
-                if key.starts_with("resolution.extension_strategies.") {
-                    if let Some(extension) = key.strip_prefix("resolution.extension_strategies.") {
-                        self.resolution.extension_strategies.insert(extension.to_string(), value.to_string());
-                        return Ok(());
-                    }
+            
+            // Resolution
+            "resolution.default_strategy" | "rizzler.resolution.default_strategy" => self.resolution.default_strategy = value.to_string(),
+            
+            // Logging
+            "logging.level" | "rizzler.logging.level" => self.logging.level = value.to_string(),
+            "logging.file" | "rizzler.logging.file" => self.logging.file = Some(value.to_string()),
+            "logging.rotation.frequency" | "rizzler.logging.rotation.frequency" => self.logging.rotation.frequency = value.to_string(),
+            "logging.rotation.max_files" | "rizzler.logging.rotation.max_files" => {
+                if let Ok(max_files) = value.parse::<usize>() {
+                    self.logging.rotation.max_files = max_files;
+                } else {
+                    return Err(ConfigError::InvalidConfig(format!("Invalid max_files value: {}", value)));
                 }
-                
+            },
+            "logging.rotation.max_file_size" | "rizzler.logging.rotation.max_file_size" => self.logging.rotation.max_file_size = value.to_string(),
+            
+            // Git
+            "git.file_extensions" => {
+                // Parse comma-separated list
+                self.git.file_extensions = value
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+            },
+            
+            // Extension strategies
+            key if key.starts_with("resolution.extension_strategies.") => {
+                if let Some(extension) = key.strip_prefix("resolution.extension_strategies.") {
+                    self.resolution.extension_strategies.insert(extension.to_string(), value.to_string());
+                    return Ok(());
+                }
+                return Err(ConfigError::InvalidConfig(format!("Invalid extension strategy key: {}", key)));
+            },
+            
+            _ => {
                 return Err(ConfigError::InvalidConfig(format!("Unknown configuration key: {}", key)));
             }
         }
@@ -560,41 +654,52 @@ impl Config {
         
         // Save AI provider configuration using Git's dot notation
         if let Some(provider) = &self.ai_provider.default_provider {
-            set_git_config("merge-ai-resolver.default-provider", provider)?;
+            set_git_config("rizzler.default-provider", provider)?;
         }
         
         if let Some(model) = &self.ai_provider.default_model {
-            set_git_config("merge-ai-resolver.default-model", model)?;
+            set_git_config("rizzler.default-model", model)?;
         }
         
         if let Some(prompt) = &self.ai_provider.system_prompt {
-            set_git_config("merge-ai-resolver.system-prompt", prompt)?;
+            set_git_config("rizzler.system-prompt", prompt)?;
         }
         
         set_git_config(
-            "merge-ai-resolver.timeout-seconds",
+            "rizzler.timeout-seconds",
             &self.ai_provider.timeout_seconds.to_string()
         )?;
         
         // Save resolution configuration
         set_git_config(
-            "merge-ai-resolver.default-strategy",
+            "rizzler.default-strategy",
             &self.resolution.default_strategy
         )?;
         
         // Save extension strategies
         for (extension, strategy) in &self.resolution.extension_strategies {
             set_git_config(
-                &format!("merge-ai-resolver.extension-strategy.{}", extension),
+                &format!("rizzler.extension-strategy.{}", extension),
                 strategy
             )?;
         }
         
         // Save logging configuration
-        set_git_config("merge-ai-resolver.log-level", &self.logging.level)?;
+        set_git_config("rizzler.log-level", &self.logging.level)?;
         
         if let Some(file) = &self.logging.file {
-            set_git_config("merge-ai-resolver.log-file", file)?;
+            set_git_config("rizzler.log-file", file)?;
+        }
+        
+        // Save logging rotation configuration
+        set_git_config("rizzler.logging.rotation.frequency", &self.logging.rotation.frequency)?;
+        set_git_config("rizzler.logging.rotation.max_files", &self.logging.rotation.max_files.to_string())?;
+        set_git_config("rizzler.logging.rotation.max_file_size", &self.logging.rotation.max_file_size)?;
+        
+        // Save git file extensions
+        if !self.git.file_extensions.is_empty() {
+            let extensions_str = self.git.file_extensions.join(",");
+            set_git_config("rizzler.git.file_extensions", &extensions_str)?;
         }
         
         Ok(())
