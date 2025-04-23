@@ -6,6 +6,13 @@ use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use std::collections::HashMap;
 use std::env;
 use tracing::{debug, info};
+use aws_config;
+use aws_config::BehaviorVersion;
+use aws_types;
+use aws_sdk_bedrockruntime;
+use aws_sdk_bedrockruntime::primitives::Blob;
+use tokio;
+use serde_json;
 
 /// AWS Bedrock provider implementation
 pub struct BedrockProvider {
@@ -347,27 +354,134 @@ impl AIProvider for BedrockProvider {
             });
         }
         
-        // In a real implementation, this would make an actual API call to AWS Bedrock
-        // Here's a placeholder for what that would look like:
-        // 1. Create the AWS SDK client for Bedrock Runtime
-        // 2. Prepare the invoke model request with the appropriate JSON payload based on model family
-        // 3. Send the request using the AWS SDK
-        // 4. Parse the response and extract the generated content
-        
-        // Since implementing the full AWS SDK integration is beyond the scope of this exercise,
-        // we'll use a mock response for now
-        let mock_response = "This is a placeholder response from AWS Bedrock API.";
-        let resolved_content = self.parse_response(mock_response)?;
-        
-        Ok(AIResponse {
-            content: resolved_content,
-            explanation: Some("Resolved by AWS Bedrock".to_string()),
-            token_usage: Some(TokenUsage {
-                input_tokens: 150,
-                output_tokens: 80,
-                total_tokens: 230,
-            }),
-            model: self.config.model.clone(),
+        // Create a Runtime that we'll use to execute our async code in synchronous context
+        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+            AIProviderError::ConnectionError(format!("Failed to create Tokio runtime: {}", e))
+        })?;
+
+        // Run the async calls in the runtime
+        rt.block_on(async {
+            // Load AWS configuration from the environment
+            let aws_config = aws_config::defaults(BehaviorVersion::latest())
+                .region(aws_types::region::Region::new(self.aws_region.clone()))
+                .load()
+                .await;
+            
+            // Create Bedrock Runtime client
+            let bedrock_client = aws_sdk_bedrockruntime::Client::new(&aws_config);
+            
+            // Create the request body based on the model family
+            let request_body = if self.config.model.contains("anthropic.claude") {
+                // Claude model request format
+                let claude_request = serde_json::json!({
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": self.config.additional_settings.get("max_tokens")
+                        .and_then(|s| s.parse::<i32>().ok())
+                        .unwrap_or(1000),
+                    "system": system_prompt,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": user_prompt
+                        }
+                    ],
+                    "temperature": self.config.additional_settings.get("temperature")
+                        .and_then(|s| s.parse::<f32>().ok())
+                        .unwrap_or(0.7)
+                });
+                serde_json::to_string(&claude_request).map_err(|e| {
+                    AIProviderError::RequestError(format!("Failed to serialize Claude request: {}", e))
+                })?
+            } else {
+                // Generic model request format as fallback
+                let generic_request = serde_json::json!({
+                    "prompt": format!("{}
+
+{}", system_prompt, user_prompt),
+                    "max_tokens": self.config.additional_settings.get("max_tokens")
+                        .and_then(|s| s.parse::<i32>().ok())
+                        .unwrap_or(1000),
+                    "temperature": self.config.additional_settings.get("temperature")
+                        .and_then(|s| s.parse::<f32>().ok())
+                        .unwrap_or(0.7)
+                });
+                serde_json::to_string(&generic_request).map_err(|e| {
+                    AIProviderError::RequestError(format!("Failed to serialize request: {}", e))
+                })?
+            };
+            
+            info!("Sending request to AWS Bedrock: {}", self.config.model);
+            debug!("Request body: {}", request_body);
+            
+            // Make the API call
+            let response = bedrock_client
+                .invoke_model()
+                .model_id(&self.config.model)
+                .content_type("application/json")
+                .accept("application/json")
+                .body(Blob::new(request_body))
+                .send()
+                .await
+                .map_err(|e| {
+                    AIProviderError::RequestError(format!("AWS Bedrock API error: {}", e))
+                })?;
+            
+            // Parse the response
+            let response_body = response.body;
+            
+            let response_str = String::from_utf8(response_body.clone().into_inner()).map_err(|e| {
+                AIProviderError::ResponseError(format!("Failed to parse response as UTF-8: {}", e))
+            })?;
+            
+            debug!("Raw response: {}", response_str);
+            
+            // Parse the response based on model
+            let resolved_content = if self.config.model.contains("anthropic.claude") {
+                // Claude response format
+                let response_json: serde_json::Value = serde_json::from_str(&response_str).map_err(|e| {
+                    AIProviderError::ResponseError(format!("Failed to parse response JSON: {}", e))
+                })?;
+                
+                // Extract content from Claude response
+                response_json.get("content")
+                    .and_then(|content| content.get(0))
+                    .and_then(|first_content| first_content.get("text"))
+                    .and_then(|text| text.as_str())
+                    .ok_or_else(|| {
+                        AIProviderError::ResponseError("Failed to extract content from Claude response".to_string())
+                    })?
+                    .to_string()
+            } else {
+                // Generic response format as fallback
+                let response_json: serde_json::Value = serde_json::from_str(&response_str).map_err(|e| {
+                    AIProviderError::ResponseError(format!("Failed to parse response JSON: {}", e))
+                })?;
+                
+                response_json.get("completion")
+                    .or_else(|| response_json.get("output"))
+                    .or_else(|| response_json.get("text"))
+                    .and_then(|text| text.as_str())
+                    .ok_or_else(|| {
+                        AIProviderError::ResponseError("Failed to extract content from response".to_string())
+                    })?
+                    .to_string()
+            };
+            
+            // Calculate approximate token usage
+            // This is an approximation since Bedrock doesn't return token usage directly
+            let input_tokens = (system_prompt.len() + user_prompt.len()) / 4; // Rough estimate: 4 chars per token
+            let output_tokens = resolved_content.len() / 4;
+            
+            Ok(AIResponse {
+                content: resolved_content,
+                explanation: Some("Resolved by AWS Bedrock".to_string()),
+                token_usage: Some(TokenUsage {
+                    input_tokens: input_tokens as u32,
+                    output_tokens: output_tokens as u32,
+                    total_tokens: (input_tokens + output_tokens) as u32,
+                }),
+                model: self.config.model.clone(),
+            })
         })
     }
     
@@ -417,27 +531,137 @@ impl AIProvider for BedrockProvider {
             });
         }
         
-        // In a real implementation, this would make an actual API call to AWS Bedrock
-        // Here's a placeholder for what that would look like:
-        // 1. Create the AWS SDK client for Bedrock Runtime
-        // 2. Prepare the invoke model request with the appropriate JSON payload based on model family
-        // 3. Send the request using the AWS SDK
-        // 4. Parse the response and extract the generated content
-        
-        // Since implementing the full AWS SDK integration is beyond the scope of this exercise,
-        // we'll use a mock response for now
-        let mock_response = "This is a placeholder response from AWS Bedrock API for the entire file.";
-        let resolved_content = self.parse_response(mock_response)?;
-        
-        Ok(AIResponse {
-            content: resolved_content,
-            explanation: Some("Entire file resolved by AWS Bedrock".to_string()),
-            token_usage: Some(TokenUsage {
-                input_tokens: 300,
-                output_tokens: 150,
-                total_tokens: 450,
-            }),
-            model: self.config.model.clone(),
+        // Create a Runtime for async execution
+        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+            AIProviderError::ResponseError(format!("Failed to create Tokio runtime: {}", e))
+        })?;
+
+        // Run the async calls in the runtime
+        rt.block_on(async {
+            // Load AWS configuration from the environment
+            let aws_config = aws_config::defaults(BehaviorVersion::latest())
+                .region(aws_types::region::Region::new(self.aws_region.clone()))
+                .load()
+                .await;
+            
+            // Create Bedrock Runtime client
+            let bedrock_client = aws_sdk_bedrockruntime::Client::new(&aws_config);
+            
+            // Create the request body based on the model family
+            let system_prompt = self.create_system_prompt();
+            let user_prompt = self.create_file_prompt(conflict_file);
+            
+            let request_body = if self.config.model.contains("anthropic.claude") {
+                // Claude model request format
+                let claude_request = serde_json::json!({
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": self.config.additional_settings.get("max_tokens")
+                        .and_then(|s| s.parse::<i32>().ok())
+                        .unwrap_or(4000), // Higher token limit for file resolution
+                    "system": system_prompt,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": user_prompt
+                        }
+                    ],
+                    "temperature": self.config.additional_settings.get("temperature")
+                        .and_then(|s| s.parse::<f32>().ok())
+                        .unwrap_or(0.7)
+                });
+                serde_json::to_string(&claude_request).map_err(|e| {
+                    AIProviderError::ResponseError(format!("Failed to serialize Claude request: {}", e))
+                })?
+            } else {
+                // Generic model request format as fallback
+                let generic_request = serde_json::json!({
+                    "prompt": format!("{}
+
+{}", system_prompt, user_prompt),
+                    "max_tokens": self.config.additional_settings.get("max_tokens")
+                        .and_then(|s| s.parse::<i32>().ok())
+                        .unwrap_or(4000), // Higher token limit for file resolution
+                    "temperature": self.config.additional_settings.get("temperature")
+                        .and_then(|s| s.parse::<f32>().ok())
+                        .unwrap_or(0.7)
+                });
+                serde_json::to_string(&generic_request).map_err(|e| {
+                    AIProviderError::ResponseError(format!("Failed to serialize request: {}", e))
+                })?
+            };
+            
+            info!("Sending file resolution request to AWS Bedrock: {}", self.config.model);
+            debug!("Request body: {}", request_body);
+            
+            // Make the API call
+            let response = bedrock_client
+                .invoke_model()
+                .model_id(&self.config.model)
+                .content_type("application/json")
+                .accept("application/json")
+                .body(Blob::new(request_body))
+                .send()
+                .await
+                .map_err(|e| {
+                    AIProviderError::ResponseError(format!("AWS Bedrock API error: {}", e))
+                })?;
+            
+            // Parse the response
+            let response_body = response.body;
+            
+            let response_str = String::from_utf8(response_body.clone().into_inner()).map_err(|e| {
+                AIProviderError::ResponseError(format!("Failed to parse response as UTF-8: {}", e))
+            })?;
+            
+            debug!("Raw response: {}", response_str);
+            
+            // Parse the response based on model
+            let resolved_content = if self.config.model.contains("anthropic.claude") {
+                // Claude response format
+                let response_json: serde_json::Value = serde_json::from_str(&response_str).map_err(|e| {
+                    AIProviderError::ResponseError(format!("Failed to parse response JSON: {}", e))
+                })?;
+                
+                // Extract content from Claude response
+                response_json.get("content")
+                    .and_then(|content| content.get(0))
+                    .and_then(|first_content| first_content.get("text"))
+                    .and_then(|text| text.as_str())
+                    .ok_or_else(|| {
+                        AIProviderError::ResponseError("Failed to extract content from Claude response".to_string())
+                    })?
+                    .to_string()
+            } else {
+                // Generic response format as fallback
+                let response_json: serde_json::Value = serde_json::from_str(&response_str).map_err(|e| {
+                    AIProviderError::ResponseError(format!("Failed to parse response JSON: {}", e))
+                })?;
+                
+                response_json.get("completion")
+                    .or_else(|| response_json.get("output"))
+                    .or_else(|| response_json.get("text"))
+                    .and_then(|text| text.as_str())
+                    .ok_or_else(|| {
+                        AIProviderError::ResponseError("Failed to extract content from response".to_string())
+                    })?
+                    .to_string()
+            };
+            
+            // Calculate approximate token usage
+            // This is an approximation since Bedrock doesn't return token usage directly
+            let input_tokens = (system_prompt.len() + user_prompt.len()) / 4; // Rough estimate: 4 chars per token
+            let output_tokens = resolved_content.len() / 4;
+            
+            Ok(AIResponse {
+                content: resolved_content,
+                explanation: Some("Entire file resolved by AWS Bedrock".to_string()),
+                token_usage: Some(TokenUsage {
+                    input_tokens: input_tokens as u32,
+                    output_tokens: output_tokens as u32,
+                    total_tokens: (input_tokens + output_tokens) as u32,
+                }),
+                model: self.config.model.clone(),
+            })
         })
     }
 }
