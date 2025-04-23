@@ -258,7 +258,16 @@ fn main() {
                     println!("AI Provider Configuration:");
                     println!("  ai_provider.default_provider: {}", config.ai_provider.default_provider.as_deref().unwrap_or("<not set>"));
                     println!("  ai_provider.default_model: {}", config.ai_provider.default_model.as_deref().unwrap_or("<not set>"));
-                    println!("  ai_provider.system_prompt: {}", config.ai_provider.system_prompt.as_deref().unwrap_or("<not set>"));
+                    // Display the system prompt or the default if not set
+                    let prompt_text = if let Some(prompt) = &config.ai_provider.system_prompt {
+                        prompt.clone()
+                    } else {
+                        let default_prompt = rizzler::prompt_engineering::PromptGenerator::new(
+                            rizzler::prompt_engineering::PromptTemplate::Default
+                        ).generate_system_prompt();
+                        format!("<using default> {}", default_prompt)
+                    };
+                    println!("  ai_provider.system_prompt: {}", prompt_text);
                     println!("  ai_provider.timeout_seconds: {}", config.ai_provider.timeout_seconds);
                     
                     println!("\nResolution Configuration:");
