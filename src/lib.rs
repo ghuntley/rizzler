@@ -4,6 +4,7 @@
 pub mod ai_provider;
 pub mod ai_resolution;
 pub mod ai_resolution_windowing;
+
 pub mod cache;
 pub mod caching_provider;
 pub mod config;
@@ -31,6 +32,7 @@ pub use caching_provider::CachingAIProvider;
 pub use config::Config;
 pub use conflict_parser::{ConflictFile, ConflictRegion, parse_conflict_file, parse_conflict_file_with_base, parse_conflict_file_with_context_matching};
 pub use diagnostics::{DiagnosticResult, DiagnosticStatus, run_diagnostics, format_diagnostic_results, write_diagnostic_results};
+
 pub use fallback::FallbackResolutionStrategy;
 pub use git_integration::{MergeDriverPaths, parse_merge_driver_args, process_merge};
 pub use git_setup::{setup_git_integration, SetupError};

@@ -176,6 +176,7 @@ fn setup_logging() {
 }
 
 fn main() {
+
     // Initialize logging
     setup_logging();
     
@@ -318,15 +319,7 @@ fn main() {
                 }
             }
             
-            // Create a backup of the file before making any changes
-            let backup_path = format!("{}.backup", args.file);
-            match std::fs::copy(&args.file, &backup_path) {
-                Ok(_) => info!("Created backup at {}", backup_path),
-                Err(err) => {
-                    warn!("Failed to create backup: {}", err);
-                    eprintln!("Warning: Unable to create backup before resolution");
-                }
-            }
+            // Backup functionality removed
             
             // Parse conflict file
             let conflict_file = match conflict_parser::parse_conflict_file(&args.file) {
@@ -351,10 +344,7 @@ fn main() {
                         Err(err) => {
                             error!("Failed to resolve conflicts with strategy {}: {}", strategy, err);
                             eprintln!("Error: {}", err);
-                            // Restore from backup
-                            if std::fs::copy(&backup_path, &args.file).is_ok() {
-                                println!("Restored original file from backup");
-                            }
+                            // Restore functionality removed
                             process::exit(1);
                         }
                     }
@@ -365,10 +355,7 @@ fn main() {
                         Err(err) => {
                             error!("Failed to resolve conflicts: {}", err);
                             eprintln!("Error: {}", err);
-                            // Restore from backup
-                            if std::fs::copy(&backup_path, &args.file).is_ok() {
-                                println!("Restored original file from backup");
-                            }
+                            // Restore functionality removed
                             process::exit(1);
                         }
                     }
@@ -381,11 +368,8 @@ fn main() {
                 Ok(_) => {
                     if resolution_result.unresolved_count > 0 {
                         println!("Warning: Not all conflicts were resolved");
-                        // Restore from backup if not all conflicts could be resolved
-                        if std::fs::copy(&backup_path, &args.file).is_ok() {
-                            println!("Restored original file from backup due to unresolved conflicts");
-                            process::exit(1);
-                        }
+                        // Restore functionality removed
+                        process::exit(1);
                     } else {
                         println!(
                             "Resolved {}/{} conflicts using strategy '{}'", 
@@ -402,10 +386,7 @@ fn main() {
                            content.contains(">>>>>>>")
                         {
                             eprintln!("Error: Conflict markers still present in the output file");
-                            // Restore from backup
-                            if std::fs::copy(&backup_path, &args.file).is_ok() {
-                                println!("Restored original file from backup due to remaining conflict markers");
-                            }
+                            // Restore functionality removed
                             process::exit(1);
                         }
                     }
@@ -413,10 +394,7 @@ fn main() {
                 Err(err) => {
                     error!("Failed to write resolution result: {}", err);
                     eprintln!("Error: {}", err);
-                    // Restore from backup
-                    if std::fs::copy(&backup_path, &args.file).is_ok() {
-                        println!("Restored original file from backup");
-                    }
+                    // Restore functionality removed
                     process::exit(1);
                 }
             }
