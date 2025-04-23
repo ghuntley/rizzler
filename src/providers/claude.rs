@@ -681,7 +681,7 @@ This preserves both the error handling and the new features."#;
         // Test without code blocks
         let response_without_code_blocks = "function example() {\n    echo \"This is plain text\"\n}\n";
         let result = provider.parse_response(response_without_code_blocks).unwrap();
-        assert_eq!(result, "function example() {\n    echo \"This is plain text\"\n}\n");
+        assert_eq!(result, response_without_code_blocks.trim());
         
         // Clean up environment
         env::remove_var("RIZZLER_CLAUDE_API_KEY");

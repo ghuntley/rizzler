@@ -26,8 +26,22 @@ pub struct AIResolutionStrategyWithFile {
 impl AIResolutionStrategyWithFile {
     /// Create a new AI resolution strategy with the default provider and the given conflict file
     pub fn new(conflict_file: &ConflictFile) -> Result<Self, ResolutionError> {
-        // Use the environment variable to determine the provider, defaulting to OpenAI
-        let provider_name = env::var("RIZZLER_PROVIDER").unwrap_or_else(|_| "openai".to_string());
+        // First try the environment variable
+        // If not set, use the configured default provider from Config
+        // Finally, default to OpenAI if neither is available
+        let provider_name = match env::var("RIZZLER_PROVIDER") {
+            Ok(provider) => provider,
+            Err(_) => {
+                // Try to load the configuration 
+                match crate::config::Config::load() {
+                    Ok(config) => {
+                        // Use the configured default provider or default to OpenAI
+                        config.ai_provider.default_provider.unwrap_or_else(|| "openai".to_string())
+                    },
+                    Err(_) => "openai".to_string()
+                }
+            }
+        };
         
         Self::with_provider(&provider_name, conflict_file)
     }
@@ -108,7 +122,26 @@ impl AIResolutionStrategyWithFile {
 impl AIResolutionStrategy {
     /// Initialize with a specific conflict file for better context
     pub fn with_conflict_file(provider_name: &str, conflict_file: &ConflictFile) -> Result<Self, ResolutionError> {
-        let strategy = Self::with_provider(provider_name)?;
+        let provider_to_use = if provider_name.is_empty() {
+            // If no provider is specified, use the default provider logic
+            match env::var("RIZZLER_PROVIDER") {
+                Ok(provider) => provider,
+                Err(_) => {
+                    // Try to load the configuration 
+                    match crate::config::Config::load() {
+                        Ok(config) => {
+                            // Use the configured default provider or default to OpenAI
+                            config.ai_provider.default_provider.unwrap_or_else(|| "openai".to_string())
+                        },
+                        Err(_) => "openai".to_string()
+                    }
+                }
+            }
+        } else {
+            provider_name.to_string()
+        };
+        
+        let strategy = Self::with_provider(&provider_to_use)?;
         Ok(AIResolutionStrategy {
             provider: strategy.provider,
             conflict_file: Some(conflict_file.clone()),
@@ -136,8 +169,22 @@ impl AIResolutionStrategy {
     
     /// Create a new AI resolution strategy with the default provider
     pub fn new() -> Result<Self, ResolutionError> {
-        // Use the environment variable to determine the provider, defaulting to OpenAI
-        let provider_name = env::var("RIZZLER_PROVIDER").unwrap_or_else(|_| "openai".to_string());
+        // First try the environment variable
+        // If not set, use the configured default provider from Config
+        // Finally, default to OpenAI if neither is available
+        let provider_name = match env::var("RIZZLER_PROVIDER") {
+            Ok(provider) => provider,
+            Err(_) => {
+                // Try to load the configuration 
+                match crate::config::Config::load() {
+                    Ok(config) => {
+                        // Use the configured default provider or default to OpenAI
+                        config.ai_provider.default_provider.unwrap_or_else(|| "openai".to_string())
+                    },
+                    Err(_) => "openai".to_string()
+                }
+            }
+        };
         
         // Check if fallback is enabled
         let use_fallback = env::var("RIZZLER_USE_FALLBACK")
@@ -312,8 +359,22 @@ pub struct AIFileResolutionStrategy {
 impl AIFileResolutionStrategy {
     /// Create a new AI file resolution strategy with the default provider
     pub fn new() -> Result<Self, ResolutionError> {
-        // Use the environment variable to determine the provider, defaulting to OpenAI
-        let provider_name = env::var("RIZZLER_PROVIDER").unwrap_or_else(|_| "openai".to_string());
+        // First try the environment variable
+        // If not set, use the configured default provider from Config
+        // Finally, default to OpenAI if neither is available
+        let provider_name = match env::var("RIZZLER_PROVIDER") {
+            Ok(provider) => provider,
+            Err(_) => {
+                // Try to load the configuration 
+                match crate::config::Config::load() {
+                    Ok(config) => {
+                        // Use the configured default provider or default to OpenAI
+                        config.ai_provider.default_provider.unwrap_or_else(|| "openai".to_string())
+                    },
+                    Err(_) => "openai".to_string()
+                }
+            }
+        };
         
         // Check if fallback is enabled
         let use_fallback = env::var("RIZZLER_USE_FALLBACK")
@@ -562,6 +623,8 @@ mod tests {
     fn test_store_conflict_file() {
         // Setup
         env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
+        env::set_var("RIZZLER_PROVIDER", "openai");
+        env::set_var("RIZZLER_CONFIG_PATH", "nonexistent-path");
         
         // Create a test conflict and file
         let conflict1 = create_test_conflict("Function A\n", "Function B\n");
@@ -584,6 +647,8 @@ mod tests {
         
         // Clean up
         env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_PROVIDER");
+        env::remove_var("RIZZLER_CONFIG_PATH");
     }
     
     // Helper function to set up environment for retry testing
@@ -607,6 +672,9 @@ mod tests {
         // Set environment variables for testing
         env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
         
+        // Explicitly set RIZZLER_PROVIDER to avoid picking up a configured value
+        env::set_var("RIZZLER_PROVIDER", "openai");
+        
         // Test initialization with default provider
         let strategy = AIResolutionStrategy::new();
         assert!(strategy.is_ok());
@@ -621,6 +689,7 @@ mod tests {
         
         // Clean up environment
         env::remove_var("RIZZLER_OPENAI_API_KEY");
+        env::remove_var("RIZZLER_PROVIDER");
     }
     
     #[test]
@@ -628,6 +697,9 @@ mod tests {
         // Set environment variables for testing
         env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
         env::set_var("RIZZLER_PROVIDER", "claude");
+        
+        // Ensure no config value is used
+        env::set_var("RIZZLER_CONFIG_PATH", "nonexistent-path");
         
         // Test initialization with default provider (now claude)
         let strategy = AIResolutionStrategy::new();
@@ -640,6 +712,7 @@ mod tests {
         // Clean up environment
         env::remove_var("RIZZLER_CLAUDE_API_KEY");
         env::remove_var("RIZZLER_PROVIDER");
+        env::remove_var("RIZZLER_CONFIG_PATH");
     }
     
     #[test]
