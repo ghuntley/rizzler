@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 8b3555d988eb60766ac5c7a51047a82e0bfd215fd604353dbf56bea115213286 # shrinks to conflict_file = ConflictFile { path: "test-file.txt", conflicts: [ConflictRegion { base_content: "", our_content: "\t\u{202f}A\t_\n", their_content: "=\u{3000}] \u{1680}\n", start_line: 1, end_line: 5 }], content: "<<<<<<< HEAD\n\t\u{202f}A\t_\n=======\n=\u{3000}] \u{1680}\n>>>>>>> branch-name\n" }

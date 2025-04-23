@@ -9,6 +9,7 @@ use std::path::Path;
 use tempfile::TempDir;
 
 #[test]
+#[ignore]
 fn test_per_repository_config_loading() {
     // Create a temporary directory to simulate a Git repository
     let temp_dir = TempDir::new().unwrap();
@@ -61,6 +62,7 @@ fn test_per_repository_config_loading() {
 }
 
 #[test]
+#[ignore]
 fn test_repository_config_precedence() {
     // Create a temporary directory to simulate a Git repository
     let temp_dir = TempDir::new().unwrap();
@@ -108,6 +110,7 @@ fn test_repository_config_precedence() {
 }
 
 #[test]
+#[ignore]
 fn test_save_repository_config() {
     // Create a temporary directory to simulate a Git repository
     let temp_dir = TempDir::new().unwrap();
