@@ -1,4 +1,4 @@
-# ✨ rizzler: stop crying over Git merge conflicts and let AI handle the drama ✨
+# ✨ rizzler: stop crying over Git merge conflicts and let AI handle the drama ✨ [![Build and Release](https://github.com/ghuntley/rizzler/actions/workflows/build.yml/badge.svg)](https://github.com/ghuntley/rizzler/actions/workflows/build.yml)
 
 💀 **Ugh, merge conflicts.** That sinking feeling when Git screams at you? We've all been there. Manually fixing those tangled messes? It's giving... tedious. It's giving... waste of my precious time. 😩
 
