@@ -55,7 +55,7 @@ impl Default for CacheConfig {
             ttl_hours: 24,
             max_entries: Some(1000),
             auto_cleanup: true,
-            immediate_flush: false,
+            immediate_flush: true, // Enable immediate flush by default for better reliability
         }
     }
 }
