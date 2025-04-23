@@ -1,6 +1,6 @@
 [package]
 name = "rizzler"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Geoffrey Huntley <ghuntley@ghuntley.com>"]
 description = "AI-powered Git merge conflict resolver"
