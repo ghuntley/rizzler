@@ -38,7 +38,7 @@ jobs:
         override: true
 
     - name: Cache Rust dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/registry
@@ -71,7 +71,7 @@ jobs:
         copy target\release\rizzler.exe ${{ matrix.artifact_name }}
 
     - name: Upload build artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.asset_name }}
         path: ${{ matrix.artifact_name }}
@@ -125,19 +125,19 @@ jobs:
         git push
 
     - name: Download Linux artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: rizzler-linux
         path: ./artifacts
 
     - name: Download macOS artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: rizzler-macos
         path: ./artifacts
 
     - name: Download Windows artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: rizzler-windows
         path: ./artifacts
