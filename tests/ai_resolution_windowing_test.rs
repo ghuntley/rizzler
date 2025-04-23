@@ -140,6 +140,7 @@ mod ai_resolution_mocks {
 }
 
 #[test]
+#[cfg(feature = "integration-tests")]
 fn test_ai_resolution_with_windowing_large_file() {
     // Create a large test file with conflicts
     let conflict_file = create_large_test_conflict_file();
@@ -170,6 +171,7 @@ fn test_ai_resolution_with_windowing_large_file() {
 }
 
 #[test]
+#[cfg(feature = "integration-tests")]
 fn test_ai_resolution_with_windowing_small_file() {
     // Create a small test file with one conflict
     let conflict = create_test_conflict("Our content\n", "Their content\n");

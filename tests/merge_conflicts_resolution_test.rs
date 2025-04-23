@@ -5,6 +5,7 @@ use rizzler::conflict_parser::parse_conflict_file;
 use rizzler::resolution_engine::{ResolutionResult, mock_resolution_for_test};
 
 #[test]
+#[cfg(feature = "integration-tests")]
 fn test_merge_conflicts_example_resolution() {
     // Enable test mode to use mock responses
     std::env::set_var("TEST_MODE", "true");
@@ -111,6 +112,7 @@ fn test_merge_conflicts_example_resolution() {
 }
 
 #[test]
+#[cfg(feature = "integration-tests")]
 fn test_ai_resolution_with_backup_and_restore() {
     // This test simulates a real-world scenario where we:
     // 1. Back up the original file with conflicts

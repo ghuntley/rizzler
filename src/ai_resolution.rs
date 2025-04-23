@@ -735,6 +735,7 @@ mod tests {
     }
     
     #[test]
+    #[cfg(feature = "integration-tests")]
     fn test_ai_resolution_strategy_conflict_handling_openai() {
         // Set environment variables for testing
         env::set_var("RIZZLER_OPENAI_API_KEY", "test-api-key");
@@ -757,6 +758,7 @@ mod tests {
     }
     
     #[test]
+    #[cfg(feature = "integration-tests")]
     fn test_ai_resolution_strategy_conflict_handling_claude() {
         // Set environment variables for testing
         env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
@@ -779,6 +781,7 @@ mod tests {
     }
     
     #[test]
+    #[cfg(feature = "integration-tests")]
     fn test_ai_resolution_strategy_conflict_handling_gemini() {
         // Set environment variables for testing
         env::set_var("RIZZLER_GEMINI_API_KEY", "test-api-key");
@@ -884,6 +887,7 @@ mod tests {
     }
     
     #[test]
+    #[cfg(feature = "integration-tests")]
     fn test_ai_resolution_strategy_conflict_handling_bedrock() {
         // Set environment variables for testing
         env::set_var("AWS_ACCESS_KEY_ID", "test-access-key");

@@ -305,6 +305,7 @@ proptest! {
 proptest! {
     // Test AIResolutionStrategy integration
     #[test]
+    #[cfg(feature = "integration-tests")]
     fn test_ai_resolution_strategy_integration(conflict_file in conflict_file_strategy()) {
         // Set API keys for testing
         env::set_var("RIZZLER_OPENAI_API_KEY", "test-key");
@@ -344,6 +345,7 @@ proptest! {
     
     // Test AIFileResolutionStrategy integration
     #[test]
+    #[cfg(feature = "integration-tests")]
     fn test_ai_file_resolution_strategy_integration(conflict_file in conflict_file_strategy()) {
         // Set API keys for testing
         env::set_var("RIZZLER_OPENAI_API_KEY", "test-key");
