@@ -66,7 +66,7 @@ Okay, so how does `rizzler` actually get triggered by Git? It's not *actual* mag
 1.  **Git Config (`.gitconfig`):** The `rizzler setup` command adds a custom merge driver definition to your Git configuration. It looks something like this:
     ```ini
     [merge "rizzler"]
-        name = rizzler AI merge driver
+        name = rizzler
         driver = rizzler %O %A %B %P
         trustExitCode = true
     ```
