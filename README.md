@@ -175,7 +175,7 @@ You can control which strategy gets used:
 *   **Default Strategy:** Set globally or per-repo using `rizzler config set resolution.default_strategy <strategy_name>` or the `RIZZLER_DEFAULT_STRATEGY` environment variable.
 *   **Per-Extension Strategies:** Map specific file extensions to strategies for fine-grained control:
     *   **Env Var:** `RIZZLER_EXTENSION_STRATEGY_<ext>=<strategy_name>` (e.g., `RIZZLER_EXTENSION_STRATEGY_MD=whitespace-only`)
-    *   **Git Config:** `git config merge-ai-resolver.extension_strategy.<ext> <strategy_name>` (e.g., `git config merge-ai-resolver.extension_strategy.md whitespace-only`)
+    *   **Git Config:** `git config rizzler.extension_strategy.<ext> <strategy_name>` (e.g., `git config rizzler.extension_strategy.md whitespace-only`)
     *   **`.rizzler` file:** Add mappings under the `[resolution.extension_strategies]` table in your repo's `.rizzler` TOML file.
 
 **AI Providers: Choose Your Fighter**

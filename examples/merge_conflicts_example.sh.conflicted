@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# A script demonstrating complex merge conflicts
+
+# Database connection settings
+DB_HOST="primary.db.example.com"
+DB_PORT=5432
+DB_USER="app_user"
+DB_PASSWORD="new_very_secure_password"
+DB_NAME="production_db"
+    check_dependencies
+    setup_database_connection
+    setup_cache
+    initialize_metrics
+}
+
+# Function to check dependencies
+main "$@"

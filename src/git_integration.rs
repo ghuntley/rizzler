@@ -94,14 +94,7 @@ pub fn process_merge(paths: &MergeDriverPaths) -> i32 {
     
     info!("Processing merge for file: {}", paths.conflict_path);
     
-    // Create a backup of the conflict file
-    let backup_path = format!("{}.backup", paths.conflict_path);
-    match fs::copy(&paths.conflict_path, &backup_path) {
-        Ok(_) => debug!("Created backup at {}", backup_path),
-        Err(err) => {
-            warn!("Failed to create backup: {}", err);
-        }
-    }
+    // Backup functionality removed
     
     // If we're in test mode and processing the example file, use the mock resolution
     use std::env;
@@ -140,10 +133,7 @@ pub fn process_merge(paths: &MergeDriverPaths) -> i32 {
                 },
                 Err(err) => {
                     error!("Also failed with basic parser: {}", err);
-                    // Restore from backup if parsing failed
-                    if fs::copy(&backup_path, &paths.conflict_path).is_ok() {
-                        debug!("Restored original file from backup");
-                    }
+                    // Restore functionality removed
                     return 1; // Return failure
                 }
             }
@@ -158,10 +148,7 @@ pub fn process_merge(paths: &MergeDriverPaths) -> i32 {
         Ok(result) => result,
         Err(err) => {
             error!("Failed to resolve conflicts: {}", err);
-            // Restore from backup if resolution failed
-            if fs::copy(&backup_path, &paths.conflict_path).is_ok() {
-                debug!("Restored original file from backup");
-            }
+            // Restore functionality removed
             return 1; // Return failure
         }
     };
@@ -188,10 +175,7 @@ pub fn process_merge(paths: &MergeDriverPaths) -> i32 {
                    content.contains(">>>>>>>")
                 {
                     error!("Conflict markers still present in the output file");
-                    // Restore from backup
-                    if fs::copy(&backup_path, &paths.conflict_path).is_ok() {
-                        debug!("Restored original file from backup due to remaining conflict markers");
-                    }
+                    // Restore functionality removed
                     return 1; // Return failure
                 }
             }
@@ -200,10 +184,7 @@ pub fn process_merge(paths: &MergeDriverPaths) -> i32 {
         }
         Err(err) => {
             error!("Failed to write resolved content: {}", err);
-            // Restore from backup if writing failed
-            if fs::copy(&backup_path, &paths.conflict_path).is_ok() {
-                debug!("Restored original file from backup");
-            }
+            // Restore functionality removed
             1 // Return failure
         }
     }
