@@ -256,26 +256,26 @@ fn main() {
                     
                     // Print the configuration values in a structured format
                     println!("AI Provider Configuration:");
-                    println!("  default_provider: {}", config.ai_provider.default_provider.as_deref().unwrap_or("<not set>"));
-                    println!("  default_model: {}", config.ai_provider.default_model.as_deref().unwrap_or("<not set>"));
-                    println!("  system_prompt: {}", config.ai_provider.system_prompt.as_deref().unwrap_or("<not set>"));
-                    println!("  timeout_seconds: {}", config.ai_provider.timeout_seconds);
+                    println!("  ai_provider.default_provider: {}", config.ai_provider.default_provider.as_deref().unwrap_or("<not set>"));
+                    println!("  ai_provider.default_model: {}", config.ai_provider.default_model.as_deref().unwrap_or("<not set>"));
+                    println!("  ai_provider.system_prompt: {}", config.ai_provider.system_prompt.as_deref().unwrap_or("<not set>"));
+                    println!("  ai_provider.timeout_seconds: {}", config.ai_provider.timeout_seconds);
                     
                     println!("\nResolution Configuration:");
-                    println!("  default_strategy: {}", config.resolution.default_strategy);
+                    println!("  resolution.default_strategy: {}", config.resolution.default_strategy);
                     
                     if !config.resolution.extension_strategies.is_empty() {
                         println!("  Extension Strategies:");
                         for (extension, strategy) in &config.resolution.extension_strategies {
-                            println!("    {}: {}", extension, strategy);
+                            println!("    resolution.extension_strategies.{}: {}", extension, strategy);
                         }
                     } else {
                         println!("  No extension-specific strategies configured");
                     }
                     
                     println!("\nLogging Configuration:");
-                    println!("  level: {}", config.logging.level);
-                    println!("  file: {}", config.logging.file.as_deref().unwrap_or("<not set>"));
+                    println!("  logging.level: {}", config.logging.level);
+                    println!("  logging.file: {}", config.logging.file.as_deref().unwrap_or("<not set>"));
                 }
                 None => {
                     println!("Use 'config get', 'config set', or 'config list'");
