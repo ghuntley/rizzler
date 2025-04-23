@@ -5,7 +5,10 @@ use crate::ai_provider::{AIProvider, AIProviderConfig, AIProviderError, AIRespon
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use std::collections::HashMap;
 use std::env;
+use std::time::Duration;
 use tracing::{debug, info};
+use regex;
+use serde_json;
 
 /// Anthropic Claude provider implementation
 pub struct ClaudeProvider {
@@ -106,9 +109,26 @@ impl ClaudeProvider {
     
     /// Parse the response from Claude
     fn parse_response(&self, response_text: &str) -> Result<String, AIProviderError> {
-        // For now, a simple implementation that just returns the text
-        // In a real implementation, we would need to handle code blocks and formatting
-        Ok(response_text.to_string())
+        // Extract code blocks if present (common in AI responses)
+        let re = regex::Regex::new(r"```(?:\w+)?\s*([\s\S]*?)```").ok();
+        
+        if let Some(re) = re {
+            let captures: Vec<_> = re.captures_iter(response_text).collect();
+            
+            if !captures.is_empty() {
+                // If we have code blocks, extract the content from the first one
+                if let Some(capture) = captures.first() {
+                    if capture.len() > 1 {
+                        return Ok(capture[1].trim().to_string());
+                    }
+                }
+            }
+        }
+        
+        // If no code blocks or regex failed, just clean the text
+        // Remove any explanations, comments, etc. that may be outside the solved code
+        let cleaned_text = response_text.trim();
+        Ok(cleaned_text.to_string())
     }
 }
 
@@ -199,27 +219,51 @@ impl AIProvider for ClaudeProvider {
             .and_then(|s| s.parse::<u32>().ok())
             .unwrap_or(4096);
         
-        // Create the request payload
-        let payload = serde_json::json!({
-            "model": self.config.model,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": user_prompt
-                }
-            ]
-        });
+        // Create the request payload with system instructions
+        let payload = if let Some(system_prompt) = &self.config.system_prompt {
+            // If custom system prompt is provided, use it
+            serde_json::json!({
+                "model": self.config.model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": user_prompt
+                    }
+                ],
+                "system": system_prompt
+            })
+        } else {
+            // Use default system prompt
+            let system_prompt = "You are an expert software developer helping to resolve Git merge conflicts. \
+                Analyze conflicts and generate solutions that preserve the intent of both changes. \
+                Use your best judgment to combine functionality or choose the most appropriate changes. \
+                Preserve the code style of the original file. Provide only the resolved code without explanations.";
+            
+            serde_json::json!({
+                "model": self.config.model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": user_prompt
+                    }
+                ],
+                "system": system_prompt
+            })
+        };
         
         debug!("Sending request to Claude API at {}", api_endpoint);
         
         // Create request agent with appropriate headers
         let request = ureq::post(&api_endpoint)
-            .timeout(std::time::Duration::from_secs(self.config.timeout_seconds))
+            .timeout(Duration::from_secs(self.config.timeout_seconds))
             .set("Content-Type", "application/json")
             .set("x-api-key", &self.config.api_key)
-            .set("anthropic-version", "2023-06-01"); // Set appropriate API version
+            .set("anthropic-version", "2023-06-01") // Set appropriate API version
+            .set("User-Agent", "rizzler/1.0");
             
         // Send the request to the Claude API
         let response = request
@@ -345,27 +389,51 @@ impl AIProvider for ClaudeProvider {
             .and_then(|s| s.parse::<u32>().ok())
             .unwrap_or(4096);
         
-        // Create the request payload
-        let payload = serde_json::json!({
-            "model": self.config.model,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": user_prompt
-                }
-            ]
-        });
+        // Create the request payload with system instructions
+        let payload = if let Some(system_prompt) = &self.config.system_prompt {
+            // If custom system prompt is provided, use it
+            serde_json::json!({
+                "model": self.config.model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": user_prompt
+                    }
+                ],
+                "system": system_prompt
+            })
+        } else {
+            // Use default system prompt
+            let system_prompt = "You are an expert software developer helping to resolve Git merge conflicts. \
+                Analyze conflicts and generate solutions that preserve the intent of both changes. \
+                Use your best judgment to combine functionality or choose the most appropriate changes. \
+                Preserve the code style of the original file. Provide only the resolved code without explanations.";
+            
+            serde_json::json!({
+                "model": self.config.model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": user_prompt
+                    }
+                ],
+                "system": system_prompt
+            })
+        };
         
         debug!("Sending request to Claude API at {}", api_endpoint);
         
         // Create request agent with appropriate headers
         let request = ureq::post(&api_endpoint)
-            .timeout(std::time::Duration::from_secs(self.config.timeout_seconds))
+            .timeout(Duration::from_secs(self.config.timeout_seconds))
             .set("Content-Type", "application/json")
             .set("x-api-key", &self.config.api_key)
-            .set("anthropic-version", "2023-06-01"); // Set appropriate API version
+            .set("anthropic-version", "2023-06-01") // Set appropriate API version
+            .set("User-Agent", "rizzler/1.0");
             
         // Send the request to the Claude API
         let response = request
@@ -433,11 +501,21 @@ impl AIProvider for ClaudeProvider {
         })
     }
     
-    // Claude doesn't use the standard system prompt approach, so we override the default
+    // Claude uses system prompts differently than other providers
     fn create_system_prompt(&self) -> String {
-        // Claude includes prompts in the "Human: ... Assistant: ..." format, so we return empty
-        // The system prompt is incorporated in the messages format in Claude
-        "".to_string()
+        // Check if a custom system prompt is provided in config
+        if let Some(prompt) = &self.config().system_prompt {
+            return prompt.clone();
+        }
+        
+        // Return a default Claude-specific system prompt
+        "You are an expert software developer specializing in resolving Git merge conflicts. \
+        When presented with merge conflicts, analyze both changes carefully and create solutions \
+        that preserve the intent and functionality of both changes whenever possible. \
+        When resolving conflicts, maintain the code style of the original codebase and ensure \
+        that the resulting code is syntactically correct and logical. Provide only the final \
+        resolved code without any additional comments or explanations unless they existed in \
+        the original code.".to_string()
     }
 }
 
@@ -447,6 +525,7 @@ mod tests {
     use crate::conflict_parser::ConflictRegion;
     use std::env;
     use proptest::prelude::*;
+    use std::fs;
     
     // Helper function to create a test conflict region
     fn create_test_conflict(our_content: &str, their_content: &str) -> ConflictRegion {
@@ -571,5 +650,136 @@ mod tests {
             // Clean up environment
             env::remove_var("RIZZLER_CLAUDE_API_KEY");
         }
+    }
+    
+    #[test]
+    fn test_parse_response_with_code_blocks() {
+        // Set the API key for testing
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+        
+        // Create a provider
+        let provider = ClaudeProvider::new().unwrap();
+        
+        // Test with code blocks
+        let response_with_code_blocks = r#"I've resolved the conflict by combining the functionality from both versions.
+
+```bash
+function example() {
+    echo "This is the resolved content"
+    return 0
+}
+```
+
+This preserves both the error handling and the new features."#;
+        
+        let result = provider.parse_response(response_with_code_blocks).unwrap();
+        assert_eq!(result, "function example() {
+    echo \"This is the resolved content\"
+    return 0
+}");
+        
+        // Test without code blocks
+        let response_without_code_blocks = "function example() {\n    echo \"This is plain text\"\n}\n";
+        let result = provider.parse_response(response_without_code_blocks).unwrap();
+        assert_eq!(result, "function example() {\n    echo \"This is plain text\"\n}\n");
+        
+        // Clean up environment
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
+    }
+    
+    #[test]
+    fn test_resolve_merge_conflicts_example() {
+        // Set environment variables for testing
+        env::set_var("RIZZLER_CLAUDE_API_KEY", "test-api-key");
+        env::set_var("TEST_MODE", "true"); // This ensures we don't make real API calls
+        
+        // Create a provider
+        let provider = ClaudeProvider::new().unwrap();
+        
+        // Create a test conflict file from examples/merge_conflicts_example.sh
+        let file_path = "examples/merge_conflicts_example.sh";
+        let content = fs::read_to_string(file_path).unwrap();
+        
+        // Parse the conflict markers to create conflict regions
+        let mut conflicts: Vec<ConflictRegion> = Vec::new();
+        let mut i = 0;
+        while i < content.lines().count() {
+            let line = content.lines().nth(i).unwrap();
+            if line.starts_with("<<<<<<< HEAD") {
+                let start_line = i;
+                let mut our_content = String::new();
+                i += 1; // Move past the start marker
+                
+                // Extract "our" content
+                while i < content.lines().count() {
+                    let line = content.lines().nth(i).unwrap();
+                    if line.starts_with("=======") {
+                        break;
+                    }
+                    our_content.push_str(line);
+                    our_content.push('\n');
+                    i += 1;
+                }
+                
+                i += 1; // Move past the separator
+                let mut their_content = String::new();
+                
+                // Extract "their" content
+                while i < content.lines().count() {
+                    let line = content.lines().nth(i).unwrap();
+                    if line.contains(">>>>>>>") {
+                        break;
+                    }
+                    their_content.push_str(line);
+                    their_content.push('\n');
+                    i += 1;
+                }
+                
+                // Create a conflict region
+                conflicts.push(ConflictRegion {
+                    base_content: String::new(),
+                    our_content,
+                    their_content,
+                    start_line: start_line,
+                    end_line: i + 1 // Include the end marker
+                });
+            }
+            i += 1;
+        }
+        
+        // Create a conflict file
+        let conflict_file = ConflictFile {
+            path: file_path.to_string(),
+            conflicts: conflicts.clone(),
+            content: content.clone(),
+        };
+        
+        // Resolve the entire file
+        let result = provider.resolve_file(&conflict_file);
+        assert!(result.is_ok());
+        
+        let response = result.unwrap();
+        assert!(!response.content.is_empty());
+        
+        // Check that the resolved content doesn't contain conflict markers
+        assert!(!response.content.contains("<<<<<<< HEAD"));
+        assert!(!response.content.contains("======="));
+        assert!(!response.content.contains(">>>>>>>"));
+        
+        // Also check individual conflict resolution
+        for conflict in &conflicts {
+            let result = provider.resolve_conflict(&conflict_file, conflict);
+            assert!(result.is_ok());
+            
+            let response = result.unwrap();
+            assert!(!response.content.is_empty());
+            assert!(!response.content.contains("<<<<<<< HEAD"));
+            assert!(!response.content.contains("======="));
+            assert!(!response.content.contains(">>>>>>>"));
+        }
+        
+        // Clean up environment
+        env::remove_var("RIZZLER_CLAUDE_API_KEY");
+        env::remove_var("TEST_MODE");
     }
 }

@@ -2,55 +2,46 @@
 
 # A script demonstrating complex merge conflicts
 
-This is a mock response from OpenAI.
-In a real implementation, we would call the OpenAI API and get a real response.
-
 # Database connection settings
-<<<<<<< HEAD
-DB_HOST="primary.db.example.com"
+DB_HOST="replica.db.example.com" # Using replica from feature/app-metrics
 DB_PORT=5432
 DB_USER="app_user"
-DB_PASSWORD="old_secure_password"
+DB_PASSWORD="new_very_secure_password" # Using newer password from feature/app-metrics
 DB_NAME="production_db"
-=======
-DB_HOST="replica.db.example.com"
-DB_PORT=5432
-DB_USER="app_user"
-DB_PASSWORD="new_very_secure_password"
-This is a mock response from OpenAI.
-In a real implementation, we would call the OpenAI API and get a real response.
-    check_dependencies
-    setup_database_connection
-    setup_cache
-    initialize_metrics
-}
->>>>>>> feature/app-metrics
 
 # Function to check dependencies
-<<<<<<< HEAD
 check_dependencies() {
     echo "Checking dependencies..."
     for dep in "curl" "jq" "wget"; do
         if ! command -v $dep &> /dev/null; then
-This is a mock response from OpenAI.
-In a real implementation, we would call the OpenAI API and get a real response.
+            install_dependency $dep
+        fi
+    done
 }
 
 install_dependency() {
     echo "Installing $1..."
     # Implementation details
 }
->>>>>>> feature/auto-dependency-install
 
 # Function to handle errors
-<<<<<<< HEAD
 handle_error() {
     echo "Error: $1"
     exit 1
 }
-=======
-This is a mock response from OpenAI.
-In a real implementation, we would call the OpenAI API and get a real response.
+
+# Main application function
+main() {
+    # Parse command line arguments
+    parse_arguments "$@"
+    
+    # Initialize the application
+    check_dependencies
+    setup_database_connection
+    setup_cache
+    initialize_metrics
+    
+    # Start application
     echo "Starting application with $(get_thread_count) threads..."
     start_worker_processes
     setup_signal_handlers
@@ -72,11 +63,6 @@ parse_arguments() {
 get_thread_count() {
     echo ${THREAD_COUNT:-$(nproc)}
 }
->>>>>>> feature/multi-threading
 
-# Call main function
-<<<<<<< HEAD
-main
-=======
+# Call main function with arguments
 main "$@"
->>>>>>> feature/command-line-args
