@@ -410,19 +410,19 @@ impl Config {
     /// Set a configuration value by key
     pub fn set(&mut self, key: &str, value: &str) -> Result<(), ConfigError> {
         match key {
-            "ai_provider.default_provider" => self.ai_provider.default_provider = Some(value.to_string()),
-            "ai_provider.default_model" => self.ai_provider.default_model = Some(value.to_string()),
-            "ai_provider.system_prompt" => self.ai_provider.system_prompt = Some(value.to_string()),
-            "ai_provider.timeout_seconds" => {
+            "ai_provider.default_provider" | "merge-ai-resolver.default-provider" => self.ai_provider.default_provider = Some(value.to_string()),
+            "ai_provider.default_model" | "merge-ai-resolver.default-model" => self.ai_provider.default_model = Some(value.to_string()),
+            "ai_provider.system_prompt" | "merge-ai-resolver.system-prompt" => self.ai_provider.system_prompt = Some(value.to_string()),
+            "ai_provider.timeout_seconds" | "merge-ai-resolver.timeout-seconds" => {
                 if let Ok(timeout) = value.parse::<u64>() {
                     self.ai_provider.timeout_seconds = timeout;
                 } else {
                     return Err(ConfigError::InvalidConfig(format!("Invalid timeout value: {}", value)));
                 }
             },
-            "resolution.default_strategy" => self.resolution.default_strategy = value.to_string(),
-            "logging.level" => self.logging.level = value.to_string(),
-            "logging.file" => self.logging.file = Some(value.to_string()),
+            "resolution.default_strategy" | "merge-ai-resolver.resolution.default_strategy" => self.resolution.default_strategy = value.to_string(),
+            "logging.level" | "merge-ai-resolver.logging.level" => self.logging.level = value.to_string(),
+            "logging.file" | "merge-ai-resolver.logging.file" => self.logging.file = Some(value.to_string()),
             _ => {
                 // Check if it's an extension strategy
                 if key.starts_with("resolution.extension_strategies.") {
@@ -560,41 +560,41 @@ impl Config {
         
         // Save AI provider configuration using Git's dot notation
         if let Some(provider) = &self.ai_provider.default_provider {
-            set_git_config("merge-ai-resolver.ai.provider.default_provider", provider)?;
+            set_git_config("merge-ai-resolver.default-provider", provider)?;
         }
         
         if let Some(model) = &self.ai_provider.default_model {
-            set_git_config("merge-ai-resolver.ai.provider.default_model", model)?;
+            set_git_config("merge-ai-resolver.default-model", model)?;
         }
         
         if let Some(prompt) = &self.ai_provider.system_prompt {
-            set_git_config("merge-ai-resolver.ai.provider.system_prompt", prompt)?;
+            set_git_config("merge-ai-resolver.system-prompt", prompt)?;
         }
         
         set_git_config(
-            "merge-ai-resolver.ai.provider.timeout_seconds",
+            "merge-ai-resolver.timeout-seconds",
             &self.ai_provider.timeout_seconds.to_string()
         )?;
         
         // Save resolution configuration
         set_git_config(
-            "merge-ai-resolver.resolution.default_strategy",
+            "merge-ai-resolver.default-strategy",
             &self.resolution.default_strategy
         )?;
         
         // Save extension strategies
         for (extension, strategy) in &self.resolution.extension_strategies {
             set_git_config(
-                &format!("merge-ai-resolver.extension_strategy.{}", extension),
+                &format!("merge-ai-resolver.extension-strategy.{}", extension),
                 strategy
             )?;
         }
         
         // Save logging configuration
-        set_git_config("merge-ai-resolver.logging.level", &self.logging.level)?;
+        set_git_config("merge-ai-resolver.log-level", &self.logging.level)?;
         
         if let Some(file) = &self.logging.file {
-            set_git_config("merge-ai-resolver.logging.file", file)?;
+            set_git_config("merge-ai-resolver.log-file", file)?;
         }
         
         Ok(())
