@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::ai_provider::AIProvider;
+use crate::caching_provider::CachingAIProvider;
 use crate::conflict_parser::{ConflictFile, ConflictRegion};
 use crate::providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
 use crate::resolution_engine::{ResolutionError, ResolutionStrategy};
@@ -43,64 +44,109 @@ impl FallbackResolutionStrategy {
         let mut providers: Vec<Box<dyn AIProvider>> = Vec::new();
         let mut available_provider_names: Vec<String> = Vec::new();
         
+        // Get cache configuration setting from environment
+        let use_cache = env::var("RIZZLER_USE_CACHE")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(true); // Enable cache by default
+            
+        // Get retry configuration setting from environment
+        let use_retries = env::var("RIZZLER_USE_RETRIES")
+            .map(|v| v.to_lowercase() == "true" || v == "1")
+            .unwrap_or(true); // Enable retries by default
+            
         // Initialize each provider in the specified order
         for name in &provider_names {
-            match name.as_str() {
+            let base_provider: Option<Box<dyn AIProvider>> = match name.as_str() {
                 "openai" => {
-                    if let Ok(provider) = OpenAIProvider::new() {
-                        if provider.is_available() {
-                            info!("Added OpenAI provider to fallback chain");
-                            providers.push(Box::new(provider));
-                            available_provider_names.push(name.clone());
-                        } else {
-                            warn!("OpenAI provider is not available (missing API key)");
+                    match OpenAIProvider::new() {
+                        Ok(provider) => {
+                            if provider.is_available() {
+                                Some(Box::new(provider))
+                            } else {
+                                warn!("OpenAI provider is not available (missing API key)");
+                                None
+                            }
+                        },
+                        Err(_) => {
+                            warn!("Failed to initialize OpenAI provider");
+                            None
                         }
-                    } else {
-                        warn!("Failed to initialize OpenAI provider");
                     }
                 },
                 "claude" | "anthropic" => {
-                    if let Ok(provider) = ClaudeProvider::new() {
-                        if provider.is_available() {
-                            info!("Added Claude provider to fallback chain");
-                            providers.push(Box::new(provider));
-                            available_provider_names.push(name.clone());
-                        } else {
-                            warn!("Claude provider is not available (missing API key)");
+                    match ClaudeProvider::new() {
+                        Ok(provider) => {
+                            if provider.is_available() {
+                                Some(Box::new(provider))
+                            } else {
+                                warn!("Claude provider is not available (missing API key)");
+                                None
+                            }
+                        },
+                        Err(_) => {
+                            warn!("Failed to initialize Claude provider");
+                            None
                         }
-                    } else {
-                        warn!("Failed to initialize Claude provider");
                     }
                 },
                 "gemini" | "google" => {
-                    if let Ok(provider) = GeminiProvider::new() {
-                        if provider.is_available() {
-                            info!("Added Gemini provider to fallback chain");
-                            providers.push(Box::new(provider));
-                            available_provider_names.push(name.clone());
-                        } else {
-                            warn!("Gemini provider is not available (missing API key)");
+                    match GeminiProvider::new() {
+                        Ok(provider) => {
+                            if provider.is_available() {
+                                Some(Box::new(provider))
+                            } else {
+                                warn!("Gemini provider is not available (missing API key)");
+                                None
+                            }
+                        },
+                        Err(_) => {
+                            warn!("Failed to initialize Gemini provider");
+                            None
                         }
-                    } else {
-                        warn!("Failed to initialize Gemini provider");
                     }
                 },
                 "bedrock" | "aws" => {
-                    if let Ok(provider) = BedrockProvider::new() {
-                        if provider.is_available() {
-                            info!("Added AWS Bedrock provider to fallback chain");
-                            providers.push(Box::new(provider));
-                            available_provider_names.push(name.clone());
-                        } else {
-                            warn!("AWS Bedrock provider is not available (missing AWS credentials or region)");
+                    match BedrockProvider::new() {
+                        Ok(provider) => {
+                            if provider.is_available() {
+                                Some(Box::new(provider))
+                            } else {
+                                warn!("AWS Bedrock provider is not available (missing AWS credentials or region)");
+                                None
+                            }
+                        },
+                        Err(_) => {
+                            warn!("Failed to initialize AWS Bedrock provider");
+                            None
                         }
-                    } else {
-                        warn!("Failed to initialize AWS Bedrock provider");
                     }
                 },
                 _ => {
                     warn!("Unknown AI provider: {}", name);
+                    None
                 }
+            };
+            
+            if let Some(provider) = base_provider {
+                // First wrap with RetryableProvider if retries are enabled
+                let retryable_provider = if use_retries {
+                    info!("Adding retry capability to {} provider in fallback chain", name);
+                    Box::new(crate::retry::RetryableProvider::new(provider)) as Box<dyn AIProvider>
+                } else {
+                    provider
+                };
+                
+                // Then wrap with CachingAIProvider if caching is enabled
+                let wrapped_provider = if use_cache {
+                    info!("Adding caching capability to {} provider in fallback chain", name);
+                    Box::new(CachingAIProvider::new(retryable_provider)) as Box<dyn AIProvider>
+                } else {
+                    retryable_provider
+                };
+                
+                info!("Added {} provider to fallback chain", name);
+                providers.push(wrapped_provider);
+                available_provider_names.push(name.clone());
             }
         }
         
