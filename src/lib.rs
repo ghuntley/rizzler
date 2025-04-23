@@ -36,6 +36,7 @@ pub use git_integration::{MergeDriverPaths, parse_merge_driver_args, process_mer
 pub use git_setup::{setup_git_integration, SetupError};
 pub use prompt_engineering::{PromptGenerator, PromptTemplate};
 pub use providers::{OpenAIProvider, ClaudeProvider, GeminiProvider, BedrockProvider};
-pub use resolution_engine::{ResolutionEngine, ResolutionStrategy, ResolutionResult, mock_resolution_for_test};
+pub use resolution_engine::{ResolutionEngine, ResolutionStrategy, ResolutionResult};
+pub use resolution_engine::mock_resolution_for_test;
 pub use retry::{RetryableProvider, RetryConfig};
 pub use windowing::WindowingStrategy;

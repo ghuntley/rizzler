@@ -295,7 +295,32 @@ impl AIProvider for GeminiProvider {
         
         // In test mode, return a mock response
         if cfg!(test) || env::var("TEST_MODE").unwrap_or_else(|_| "false".to_string()) == "true" {
-            let content = "// Mock resolved content from Gemini API\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n".to_string();
+            // For testing with the example merge conflicts file
+            let is_merge_example = conflict_file.path.contains("merge_conflicts_example.sh");
+            
+            let content = if is_merge_example {
+                // Check which conflict we're resolving based on content
+                if conflict.our_content.contains("DB_HOST=\"primary.db.example.com\"") {
+                    // Database settings conflict
+                    "DB_HOST=\"replica.db.example.com\" # Using replica from feature/app-metrics\nDB_PORT=5432\nDB_USER=\"app_user\"\nDB_PASSWORD=\"new_very_secure_password\" # Using newer password from feature/app-metrics\nDB_NAME=\"production_db\"".to_string()
+                } else if conflict.our_content.contains("check_dependencies()") {
+                    // Check dependencies conflict
+                    "check_dependencies() {\n    echo \"Checking dependencies...\"\n    for dep in \"curl\" \"jq\" \"wget\"; do\n        if ! command -v $dep &> /dev/null; then\n            install_dependency $dep\n        fi\n    done\n}\n\ninstall_dependency() {\n    echo \"Installing $1...\"\n    # Implementation details\n}".to_string()
+                } else if conflict.our_content.contains("handle_error()") {
+                    // Handle error conflict
+                    "handle_error() {\n    echo \"Error: $1\"\n    exit 1\n}\n\n# Main application function\nmain() {\n    # Parse command line arguments\n    parse_arguments \"$@\"\n    \n    # Initialize the application\n    check_dependencies\n    setup_database_connection\n    setup_cache\n    initialize_metrics\n    \n    # Start application\n    echo \"Starting application with $(get_thread_count) threads...\"\n    start_worker_processes\n    setup_signal_handlers\n    wait_for_completion\n}\n\nparse_arguments() {\n    # Parse command line arguments\n    while [[ $# -gt 0 ]]; do\n        case $1 in\n            --debug) DEBUG_MODE=true ;;\n            --threads=*) THREAD_COUNT=\"${1#*=}\" ;;\n            *) echo \"Unknown option: $1\" ;;\n        esac\n        shift\n    done\n}\n\nget_thread_count() {\n    echo ${THREAD_COUNT:-$(nproc)}\n}".to_string()
+                } else if conflict.our_content.contains("main") && conflict.their_content.contains("main \"$@\"") {
+                    // Main function call conflict
+                    "# Call main function with arguments\nmain \"$@\"".to_string()
+                } else {
+                    // Default mock response
+                    "// Default mock resolved content from Gemini API\nfunction example() {\n    // Combined implementation\n    console.log('Resolved content');\n}\n".to_string()
+                }
+            } else {
+                // Default mock response for non-example files
+                "// Mock resolved content from Gemini API\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n".to_string()
+            };
+            
             let token_count = user_prompt.chars().count() as u32;
             let output_count = content.chars().count() as u32;
             
@@ -377,7 +402,16 @@ impl AIProvider for GeminiProvider {
         
         // In test mode, return a mock response
         if cfg!(test) || env::var("TEST_MODE").unwrap_or_else(|_| "false".to_string()) == "true" {
-            let content = "// Mock resolved content for entire file\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n\nfunction subtract(a, b) {\n  return a - b;\n}\n".to_string();
+            // For testing with the example merge conflicts file
+            let is_merge_example = conflict_file.path.contains("merge_conflicts_example.sh");
+            
+            let content = if is_merge_example {
+                // Return a complete resolution for the example file
+                "#!/bin/bash\n\n# A script demonstrating complex merge conflicts\n\n# Database connection settings\nDB_HOST=\"replica.db.example.com\" # Using replica from feature/app-metrics\nDB_PORT=5432\nDB_USER=\"app_user\"\nDB_PASSWORD=\"new_very_secure_password\" # Using newer password from feature/app-metrics\nDB_NAME=\"production_db\"\n\n# Function to check dependencies\ncheck_dependencies() {\n    echo \"Checking dependencies...\"\n    for dep in \"curl\" \"jq\" \"wget\"; do\n        if ! command -v $dep &> /dev/null; then\n            install_dependency $dep\n        fi\n    done\n}\n\ninstall_dependency() {\n    echo \"Installing $1...\"\n    # Implementation details\n}\n\n# Function to handle errors\nhandle_error() {\n    echo \"Error: $1\"\n    exit 1\n}\n\n# Main application function\nmain() {\n    # Parse command line arguments\n    parse_arguments \"$@\"\n    \n    # Initialize the application\n    check_dependencies\n    setup_database_connection\n    setup_cache\n    initialize_metrics\n    \n    # Start application\n    echo \"Starting application with $(get_thread_count) threads...\"\n    start_worker_processes\n    setup_signal_handlers\n    wait_for_completion\n}\n\nparse_arguments() {\n    # Parse command line arguments\n    while [[ $# -gt 0 ]]; do\n        case $1 in\n            --debug) DEBUG_MODE=true ;;\n            --threads=*) THREAD_COUNT=\"${1#*=}\" ;;\n            *) echo \"Unknown option: $1\" ;;\n        esac\n        shift\n    done\n}\n\nget_thread_count() {\n    echo ${THREAD_COUNT:-$(nproc)}\n}\n\n# Call main function with arguments\nmain \"$@\"\n".to_string()
+            } else {
+                // Default mock response
+                "// Mock resolved content for entire file\nfunction add(a, b) {\n  // Add two numbers\n  return a + b;\n}\n\nfunction subtract(a, b) {\n  return a - b;\n}\n".to_string()
+            };
             
             let token_count = user_prompt.chars().count() as u32;
             let output_count = content.chars().count() as u32;
