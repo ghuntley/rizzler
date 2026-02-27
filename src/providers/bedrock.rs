@@ -570,7 +570,7 @@ impl AIProvider for BedrockProvider {
                         .unwrap_or(0.7)
                 });
                 serde_json::to_string(&claude_request).map_err(|e| {
-                    AIProviderError::ResponseError(format!("Failed to serialize Claude request: {}", e))
+                    AIProviderError::RequestError(format!("Failed to serialize Claude request: {}", e))
                 })?
             } else {
                 // Generic model request format as fallback
@@ -586,7 +586,7 @@ impl AIProvider for BedrockProvider {
                         .unwrap_or(0.7)
                 });
                 serde_json::to_string(&generic_request).map_err(|e| {
-                    AIProviderError::ResponseError(format!("Failed to serialize request: {}", e))
+                    AIProviderError::RequestError(format!("Failed to serialize request: {}", e))
                 })?
             };
             
@@ -603,7 +603,7 @@ impl AIProvider for BedrockProvider {
                 .send()
                 .await
                 .map_err(|e| {
-                    AIProviderError::ResponseError(format!("AWS Bedrock API error: {}", e))
+                    AIProviderError::RequestError(format!("AWS Bedrock API error: {}", e))
                 })?;
             
             // Parse the response
